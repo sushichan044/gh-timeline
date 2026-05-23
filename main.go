@@ -1,26 +1,16 @@
+// Command gh-timeline is a GitHub CLI extension that prints a Pull Request's
+// full timeline of events in chronological order. The skill bundle is
+// embedded by [embed.go] at this same package so the //go:embed directive can
+// reach the top-level `skills/` directory.
 package main
 
 import (
-	"fmt"
+	"context"
+	"os"
 
-	"github.com/cli/go-gh/v2/pkg/api"
+	"github.com/sushichan044/gh-timeline/cmd"
 )
 
 func main() {
-	fmt.Println("hi world, this is the gh-timeline extension!")
-	client, err := api.DefaultRESTClient()
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	response := struct {Login string}{}
-	err = client.Get("user", &response)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	fmt.Printf("running as %s\n", response.Login)
+	os.Exit(cmd.Run(context.Background(), os.Args, os.Stdout, os.Stderr, skillFS))
 }
-
-// For more examples of using go-gh, see:
-// https://github.com/cli/go-gh/blob/trunk/example_gh_test.go

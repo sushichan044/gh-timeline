@@ -1,0 +1,64 @@
+# [env]
+# _.path = "dist/seil_darwin_arm64_v8.0" # Please change depends on your OS
+
+[settings]
+experimental = true
+idiomatic_version_file_enable_tools = ["go"]
+
+[tasks."lint"]
+run = [{ tasks = ["lint:golangci", "lint:deadcode", "lint:gofix"] }]
+
+[tasks."lint:golangci"]
+description = "Run golangci-lint"
+run = "golangci-lint run"
+hide = true
+
+[tasks."lint:golangci:fix"]
+description = "Run golangci-lint with --fix"
+run = "golangci-lint run --fix"
+hide = true
+
+[tasks."lint:deadcode"]
+description = "Run deadcode"
+run = """
+out=$(go run golang.org/x/tools/cmd/deadcode@latest -test ./...)
+if [ -n "$out" ]; then
+  echo "$out"
+  exit 1
+fi
+"""
+hide = true
+
+[tasks."lint:gofix"]
+run = "go fix ./..."
+hide = true
+
+[tasks."lint:fix"]
+run = [{ tasks = ["lint:golangci:fix", "lint:deadcode", "lint:gofix"] }]
+
+[tasks.fmt]
+description = "Format code"
+run = "golangci-lint fmt"
+
+[tasks.test]
+description = "Run tests"
+run = "go test ./... -cover -json | go tool tparse -all"
+
+[tasks.clean]
+description = "Remove generated files"
+run = """
+rm -rf bin/
+go clean
+"""
+
+[tasks.dev]
+description = "Run the CLI locally (e.g. `mise run dev -- --repo cli/cli 1234`)"
+run = "go run ."
+
+[tasks."dev:ai"]
+description = "Run the CLI locally as if invoked by an AI agent (forces JSON output and the SKILL.md --help)"
+env = { AGENT = "dev-ai" }
+run = "go run ."
+
+[tools]
+"aqua:golangci/golangci-lint" = "2.12.2"
