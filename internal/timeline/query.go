@@ -56,6 +56,34 @@ type prTimelineNode struct {
 	ConvertedNoteToIssueEvent  projectChangeEventFragment         `graphql:"... on ConvertedNoteToIssueEvent"`
 	UserBlockedEvent           userBlockedEventFragment           `graphql:"... on UserBlockedEvent"`
 
+	// Shared with Issue — sub-issue / parent / blocking family
+	SubIssueAddedEvent      subIssueEventFragment    `graphql:"... on SubIssueAddedEvent"`
+	SubIssueRemovedEvent    subIssueEventFragment    `graphql:"... on SubIssueRemovedEvent"`
+	ParentIssueAddedEvent   parentIssueEventFragment `graphql:"... on ParentIssueAddedEvent"`
+	ParentIssueRemovedEvent parentIssueEventFragment `graphql:"... on ParentIssueRemovedEvent"`
+	BlockedByAddedEvent     blockedByEventFragment   `graphql:"... on BlockedByAddedEvent"`
+	BlockedByRemovedEvent   blockedByEventFragment   `graphql:"... on BlockedByRemovedEvent"`
+	BlockingAddedEvent      blockingEventFragment    `graphql:"... on BlockingAddedEvent"`
+	BlockingRemovedEvent    blockingEventFragment    `graphql:"... on BlockingRemovedEvent"`
+
+	// Shared with Issue — ProjectV2 family
+	AddedToProjectV2Event           projectV2ChangeEventFragment        `graphql:"... on AddedToProjectV2Event"`
+	RemovedFromProjectV2Event       projectV2ChangeEventFragment        `graphql:"... on RemovedFromProjectV2Event"`
+	ProjectV2ItemStatusChangedEvent projectV2StatusChangedEventFragment `graphql:"... on ProjectV2ItemStatusChangedEvent"`
+	ConvertedFromDraftEvent         projectV2ChangeEventFragment        `graphql:"... on ConvertedFromDraftEvent"`
+
+	// Shared with Issue — Issue field / type family
+	IssueFieldAddedEvent   issueFieldAddedEventFragment   `graphql:"... on IssueFieldAddedEvent"`
+	IssueFieldChangedEvent issueFieldChangedEventFragment `graphql:"... on IssueFieldChangedEvent"`
+	IssueFieldRemovedEvent issueFieldRemovedEventFragment `graphql:"... on IssueFieldRemovedEvent"`
+	IssueTypeAddedEvent    issueTypeEventFragment         `graphql:"... on IssueTypeAddedEvent"`
+	IssueTypeChangedEvent  issueTypeChangedEventFragment  `graphql:"... on IssueTypeChangedEvent"`
+	IssueTypeRemovedEvent  issueTypeEventFragment         `graphql:"... on IssueTypeRemovedEvent"`
+
+	// Shared with Issue — issue comment pin
+	IssueCommentPinnedEvent   issueCommentPinEventFragment `graphql:"... on IssueCommentPinnedEvent"`
+	IssueCommentUnpinnedEvent issueCommentPinEventFragment `graphql:"... on IssueCommentUnpinnedEvent"`
+
 	// PR-only
 	PullRequestCommit                 pullRequestCommitFragment                 `graphql:"... on PullRequestCommit"`
 	PullRequestReview                 pullRequestReviewFragment                 `graphql:"... on PullRequestReview"`
@@ -124,6 +152,34 @@ type issueTimelineNode struct {
 	MovedColumnsInProjectEvent movedColumnsInProjectEventFragment `graphql:"... on MovedColumnsInProjectEvent"`
 	ConvertedNoteToIssueEvent  projectChangeEventFragment         `graphql:"... on ConvertedNoteToIssueEvent"`
 	UserBlockedEvent           userBlockedEventFragment           `graphql:"... on UserBlockedEvent"`
+
+	// Sub-issue / parent / blocking family
+	SubIssueAddedEvent      subIssueEventFragment    `graphql:"... on SubIssueAddedEvent"`
+	SubIssueRemovedEvent    subIssueEventFragment    `graphql:"... on SubIssueRemovedEvent"`
+	ParentIssueAddedEvent   parentIssueEventFragment `graphql:"... on ParentIssueAddedEvent"`
+	ParentIssueRemovedEvent parentIssueEventFragment `graphql:"... on ParentIssueRemovedEvent"`
+	BlockedByAddedEvent     blockedByEventFragment   `graphql:"... on BlockedByAddedEvent"`
+	BlockedByRemovedEvent   blockedByEventFragment   `graphql:"... on BlockedByRemovedEvent"`
+	BlockingAddedEvent      blockingEventFragment    `graphql:"... on BlockingAddedEvent"`
+	BlockingRemovedEvent    blockingEventFragment    `graphql:"... on BlockingRemovedEvent"`
+
+	// ProjectV2 family
+	AddedToProjectV2Event           projectV2ChangeEventFragment        `graphql:"... on AddedToProjectV2Event"`
+	RemovedFromProjectV2Event       projectV2ChangeEventFragment        `graphql:"... on RemovedFromProjectV2Event"`
+	ProjectV2ItemStatusChangedEvent projectV2StatusChangedEventFragment `graphql:"... on ProjectV2ItemStatusChangedEvent"`
+	ConvertedFromDraftEvent         projectV2ChangeEventFragment        `graphql:"... on ConvertedFromDraftEvent"`
+
+	// Issue field / type family
+	IssueFieldAddedEvent   issueFieldAddedEventFragment   `graphql:"... on IssueFieldAddedEvent"`
+	IssueFieldChangedEvent issueFieldChangedEventFragment `graphql:"... on IssueFieldChangedEvent"`
+	IssueFieldRemovedEvent issueFieldRemovedEventFragment `graphql:"... on IssueFieldRemovedEvent"`
+	IssueTypeAddedEvent    issueTypeEventFragment         `graphql:"... on IssueTypeAddedEvent"`
+	IssueTypeChangedEvent  issueTypeChangedEventFragment  `graphql:"... on IssueTypeChangedEvent"`
+	IssueTypeRemovedEvent  issueTypeEventFragment         `graphql:"... on IssueTypeRemovedEvent"`
+
+	// Issue comment pin
+	IssueCommentPinnedEvent   issueCommentPinEventFragment `graphql:"... on IssueCommentPinnedEvent"`
+	IssueCommentUnpinnedEvent issueCommentPinEventFragment `graphql:"... on IssueCommentUnpinnedEvent"`
 }
 
 // timelineQuery is the top-level query shape passed to githubv4.Client.Query.

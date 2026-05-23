@@ -278,6 +278,299 @@ func TestDispatchPRNode_richSummariesPerType(t *testing.T) {
 			wantActor:   "noah",
 			wantSummary: "dismissed review by oscar: stale review",
 		},
+		{
+			name: "SubIssueAddedEvent names the linked sub-issue",
+			node: func() prTimelineNode {
+				n := prTimelineNode{Typename: "SubIssueAddedEvent"}
+				n.SubIssueAddedEvent.Actor.Login = "pat"
+				n.SubIssueAddedEvent.CreatedAt = dt(ts)
+				n.SubIssueAddedEvent.SubIssue.Number = 7
+				n.SubIssueAddedEvent.SubIssue.Title = "Implement child"
+				n.SubIssueAddedEvent.SubIssue.Repository.NameWithOwner = "octo/repo"
+				return n
+			}(),
+			wantType:    "SubIssueAddedEvent",
+			wantActor:   "pat",
+			wantSummary: "added sub-issue octo/repo#7: Implement child",
+		},
+		{
+			name: "SubIssueRemovedEvent uses the removed verb",
+			node: func() prTimelineNode {
+				n := prTimelineNode{Typename: "SubIssueRemovedEvent"}
+				n.SubIssueRemovedEvent.Actor.Login = "pat"
+				n.SubIssueRemovedEvent.CreatedAt = dt(ts)
+				n.SubIssueRemovedEvent.SubIssue.Number = 7
+				n.SubIssueRemovedEvent.SubIssue.Title = "Implement child"
+				n.SubIssueRemovedEvent.SubIssue.Repository.NameWithOwner = "octo/repo"
+				return n
+			}(),
+			wantType:    "SubIssueRemovedEvent",
+			wantActor:   "pat",
+			wantSummary: "removed sub-issue octo/repo#7: Implement child",
+		},
+		{
+			name: "SubIssueAddedEvent falls back to bare verb when issue ref is empty",
+			node: func() prTimelineNode {
+				n := prTimelineNode{Typename: "SubIssueAddedEvent"}
+				n.SubIssueAddedEvent.Actor.Login = "pat"
+				n.SubIssueAddedEvent.CreatedAt = dt(ts)
+				return n
+			}(),
+			wantType:    "SubIssueAddedEvent",
+			wantActor:   "pat",
+			wantSummary: "added sub-issue",
+		},
+		{
+			name: "ParentIssueAddedEvent names the linked parent issue",
+			node: func() prTimelineNode {
+				n := prTimelineNode{Typename: "ParentIssueAddedEvent"}
+				n.ParentIssueAddedEvent.Actor.Login = "quinn"
+				n.ParentIssueAddedEvent.CreatedAt = dt(ts)
+				n.ParentIssueAddedEvent.Parent.Number = 3
+				n.ParentIssueAddedEvent.Parent.Title = "Epic"
+				n.ParentIssueAddedEvent.Parent.Repository.NameWithOwner = "octo/repo"
+				return n
+			}(),
+			wantType:    "ParentIssueAddedEvent",
+			wantActor:   "quinn",
+			wantSummary: "added parent issue octo/repo#3: Epic",
+		},
+		{
+			name: "ParentIssueRemovedEvent uses the removed verb",
+			node: func() prTimelineNode {
+				n := prTimelineNode{Typename: "ParentIssueRemovedEvent"}
+				n.ParentIssueRemovedEvent.Actor.Login = "quinn"
+				n.ParentIssueRemovedEvent.CreatedAt = dt(ts)
+				n.ParentIssueRemovedEvent.Parent.Number = 3
+				n.ParentIssueRemovedEvent.Parent.Title = "Epic"
+				n.ParentIssueRemovedEvent.Parent.Repository.NameWithOwner = "octo/repo"
+				return n
+			}(),
+			wantType:    "ParentIssueRemovedEvent",
+			wantActor:   "quinn",
+			wantSummary: "removed parent issue octo/repo#3: Epic",
+		},
+		{
+			name: "BlockedByAddedEvent names the blocking issue",
+			node: func() prTimelineNode {
+				n := prTimelineNode{Typename: "BlockedByAddedEvent"}
+				n.BlockedByAddedEvent.Actor.Login = "rita"
+				n.BlockedByAddedEvent.CreatedAt = dt(ts)
+				n.BlockedByAddedEvent.BlockingIssue.Number = 99
+				n.BlockedByAddedEvent.BlockingIssue.Title = "Upstream blocker"
+				n.BlockedByAddedEvent.BlockingIssue.Repository.NameWithOwner = "octo/dep"
+				return n
+			}(),
+			wantType:    "BlockedByAddedEvent",
+			wantActor:   "rita",
+			wantSummary: "blocked by octo/dep#99: Upstream blocker",
+		},
+		{
+			name: "BlockedByRemovedEvent uses the no-longer phrasing",
+			node: func() prTimelineNode {
+				n := prTimelineNode{Typename: "BlockedByRemovedEvent"}
+				n.BlockedByRemovedEvent.Actor.Login = "rita"
+				n.BlockedByRemovedEvent.CreatedAt = dt(ts)
+				n.BlockedByRemovedEvent.BlockingIssue.Number = 99
+				n.BlockedByRemovedEvent.BlockingIssue.Title = "Upstream blocker"
+				n.BlockedByRemovedEvent.BlockingIssue.Repository.NameWithOwner = "octo/dep"
+				return n
+			}(),
+			wantType:    "BlockedByRemovedEvent",
+			wantActor:   "rita",
+			wantSummary: "no longer blocked by octo/dep#99: Upstream blocker",
+		},
+		{
+			name: "BlockingAddedEvent names the blocked downstream issue",
+			node: func() prTimelineNode {
+				n := prTimelineNode{Typename: "BlockingAddedEvent"}
+				n.BlockingAddedEvent.Actor.Login = "sue"
+				n.BlockingAddedEvent.CreatedAt = dt(ts)
+				n.BlockingAddedEvent.BlockedIssue.Number = 12
+				n.BlockingAddedEvent.BlockedIssue.Title = "Downstream consumer"
+				n.BlockingAddedEvent.BlockedIssue.Repository.NameWithOwner = "octo/consumer"
+				return n
+			}(),
+			wantType:    "BlockingAddedEvent",
+			wantActor:   "sue",
+			wantSummary: "blocking octo/consumer#12: Downstream consumer",
+		},
+		{
+			name: "BlockingRemovedEvent uses the no-longer phrasing",
+			node: func() prTimelineNode {
+				n := prTimelineNode{Typename: "BlockingRemovedEvent"}
+				n.BlockingRemovedEvent.Actor.Login = "sue"
+				n.BlockingRemovedEvent.CreatedAt = dt(ts)
+				n.BlockingRemovedEvent.BlockedIssue.Number = 12
+				n.BlockingRemovedEvent.BlockedIssue.Title = "Downstream consumer"
+				n.BlockingRemovedEvent.BlockedIssue.Repository.NameWithOwner = "octo/consumer"
+				return n
+			}(),
+			wantType:    "BlockingRemovedEvent",
+			wantActor:   "sue",
+			wantSummary: "no longer blocking octo/consumer#12: Downstream consumer",
+		},
+		{
+			name: "AddedToProjectV2Event quotes the project title",
+			node: func() prTimelineNode {
+				n := prTimelineNode{Typename: "AddedToProjectV2Event"}
+				n.AddedToProjectV2Event.Actor.Login = "tara"
+				n.AddedToProjectV2Event.CreatedAt = dt(ts)
+				n.AddedToProjectV2Event.Project.Title = "Roadmap"
+				return n
+			}(),
+			wantType:    "AddedToProjectV2Event",
+			wantActor:   "tara",
+			wantSummary: `added to project "Roadmap"`,
+		},
+		{
+			name: "RemovedFromProjectV2Event uses the removed verb",
+			node: func() prTimelineNode {
+				n := prTimelineNode{Typename: "RemovedFromProjectV2Event"}
+				n.RemovedFromProjectV2Event.Actor.Login = "tara"
+				n.RemovedFromProjectV2Event.CreatedAt = dt(ts)
+				n.RemovedFromProjectV2Event.Project.Title = "Roadmap"
+				return n
+			}(),
+			wantType:    "RemovedFromProjectV2Event",
+			wantActor:   "tara",
+			wantSummary: `removed from project "Roadmap"`,
+		},
+		{
+			name: "ProjectV2ItemStatusChangedEvent shows project, previous and new status",
+			node: func() prTimelineNode {
+				n := prTimelineNode{Typename: "ProjectV2ItemStatusChangedEvent"}
+				n.ProjectV2ItemStatusChangedEvent.Actor.Login = "uma"
+				n.ProjectV2ItemStatusChangedEvent.CreatedAt = dt(ts)
+				n.ProjectV2ItemStatusChangedEvent.Project.Title = "Roadmap"
+				n.ProjectV2ItemStatusChangedEvent.PreviousStatus = "Todo"
+				n.ProjectV2ItemStatusChangedEvent.Status = "In Progress"
+				return n
+			}(),
+			wantType:    "ProjectV2ItemStatusChangedEvent",
+			wantActor:   "uma",
+			wantSummary: `status changed in project "Roadmap": "Todo" → "In Progress"`,
+		},
+		{
+			name: "ConvertedFromDraftEvent reports the draft conversion",
+			node: func() prTimelineNode {
+				n := prTimelineNode{Typename: "ConvertedFromDraftEvent"}
+				n.ConvertedFromDraftEvent.Actor.Login = "vic"
+				n.ConvertedFromDraftEvent.CreatedAt = dt(ts)
+				n.ConvertedFromDraftEvent.Project.Title = "Roadmap"
+				return n
+			}(),
+			wantType:    "ConvertedFromDraftEvent",
+			wantActor:   "vic",
+			wantSummary: `converted from draft "Roadmap"`,
+		},
+		{
+			name: "IssueFieldAddedEvent quotes field name with its value",
+			node: func() prTimelineNode {
+				n := prTimelineNode{Typename: "IssueFieldAddedEvent"}
+				n.IssueFieldAddedEvent.Actor.Login = "wes"
+				n.IssueFieldAddedEvent.CreatedAt = dt(ts)
+				n.IssueFieldAddedEvent.IssueField.IssueFieldCommon.Name = "Priority"
+				n.IssueFieldAddedEvent.Value = "P1"
+				return n
+			}(),
+			wantType:    "IssueFieldAddedEvent",
+			wantActor:   "wes",
+			wantSummary: `added field "Priority": P1`,
+		},
+		{
+			name: "IssueFieldChangedEvent shows previous and new value",
+			node: func() prTimelineNode {
+				n := prTimelineNode{Typename: "IssueFieldChangedEvent"}
+				n.IssueFieldChangedEvent.Actor.Login = "wes"
+				n.IssueFieldChangedEvent.CreatedAt = dt(ts)
+				n.IssueFieldChangedEvent.IssueField.IssueFieldCommon.Name = "Priority"
+				n.IssueFieldChangedEvent.PreviousValue = "P1"
+				n.IssueFieldChangedEvent.NewValue = "P0"
+				return n
+			}(),
+			wantType:    "IssueFieldChangedEvent",
+			wantActor:   "wes",
+			wantSummary: `changed field "Priority": "P1" → "P0"`,
+		},
+		{
+			name: "IssueFieldRemovedEvent quotes the removed field name",
+			node: func() prTimelineNode {
+				n := prTimelineNode{Typename: "IssueFieldRemovedEvent"}
+				n.IssueFieldRemovedEvent.Actor.Login = "wes"
+				n.IssueFieldRemovedEvent.CreatedAt = dt(ts)
+				n.IssueFieldRemovedEvent.IssueField.IssueFieldCommon.Name = "Priority"
+				return n
+			}(),
+			wantType:    "IssueFieldRemovedEvent",
+			wantActor:   "wes",
+			wantSummary: `removed field "Priority"`,
+		},
+		{
+			name: "IssueTypeAddedEvent quotes the issue type name",
+			node: func() prTimelineNode {
+				n := prTimelineNode{Typename: "IssueTypeAddedEvent"}
+				n.IssueTypeAddedEvent.Actor.Login = "xena"
+				n.IssueTypeAddedEvent.CreatedAt = dt(ts)
+				n.IssueTypeAddedEvent.IssueType.Name = "Bug"
+				return n
+			}(),
+			wantType:    "IssueTypeAddedEvent",
+			wantActor:   "xena",
+			wantSummary: `set issue type to "Bug"`,
+		},
+		{
+			name: "IssueTypeChangedEvent shows previous and new issue type",
+			node: func() prTimelineNode {
+				n := prTimelineNode{Typename: "IssueTypeChangedEvent"}
+				n.IssueTypeChangedEvent.Actor.Login = "xena"
+				n.IssueTypeChangedEvent.CreatedAt = dt(ts)
+				n.IssueTypeChangedEvent.PrevIssueType.Name = "Task"
+				n.IssueTypeChangedEvent.IssueType.Name = "Bug"
+				return n
+			}(),
+			wantType:    "IssueTypeChangedEvent",
+			wantActor:   "xena",
+			wantSummary: `changed issue type: "Task" → "Bug"`,
+		},
+		{
+			name: "IssueTypeRemovedEvent uses the removed verb",
+			node: func() prTimelineNode {
+				n := prTimelineNode{Typename: "IssueTypeRemovedEvent"}
+				n.IssueTypeRemovedEvent.Actor.Login = "xena"
+				n.IssueTypeRemovedEvent.CreatedAt = dt(ts)
+				n.IssueTypeRemovedEvent.IssueType.Name = "Bug"
+				return n
+			}(),
+			wantType:    "IssueTypeRemovedEvent",
+			wantActor:   "xena",
+			wantSummary: `removed issue type "Bug"`,
+		},
+		{
+			name: "IssueCommentPinnedEvent uses fixed wording",
+			node: func() prTimelineNode {
+				n := prTimelineNode{Typename: "IssueCommentPinnedEvent"}
+				n.IssueCommentPinnedEvent.Actor.Login = "yui"
+				n.IssueCommentPinnedEvent.CreatedAt = dt(ts)
+				n.IssueCommentPinnedEvent.IssueComment.DatabaseID = int64(101)
+				return n
+			}(),
+			wantType:    "IssueCommentPinnedEvent",
+			wantActor:   "yui",
+			wantSummary: "pinned comment",
+		},
+		{
+			name: "IssueCommentUnpinnedEvent uses fixed wording",
+			node: func() prTimelineNode {
+				n := prTimelineNode{Typename: "IssueCommentUnpinnedEvent"}
+				n.IssueCommentUnpinnedEvent.Actor.Login = "yui"
+				n.IssueCommentUnpinnedEvent.CreatedAt = dt(ts)
+				return n
+			}(),
+			wantType:    "IssueCommentUnpinnedEvent",
+			wantActor:   "yui",
+			wantSummary: "unpinned comment",
+		},
 	}
 
 	for _, tt := range tests {
@@ -334,6 +627,74 @@ func TestDispatchIssueNode_handlesSharedEvents(t *testing.T) {
 	got := dispatchIssueNode(n)
 	if got.Type != "LabeledEvent" || got.Actor != "alice" || got.Summary != "added label needs-triage" {
 		t.Errorf("unexpected event: %+v", got)
+	}
+}
+
+// TestDispatchIssueNode_subIssueFamily exercises the sub-issue / blocking
+// family on the Issue dispatcher — these are the events that motivated
+// adding the new fragments, since they fire predominantly on issues rather
+// than PRs.
+func TestDispatchIssueNode_subIssueFamily(t *testing.T) {
+	t.Parallel()
+	ts := time.Date(2026, 4, 5, 9, 0, 0, 0, time.UTC)
+
+	tests := []struct {
+		name        string
+		node        issueTimelineNode
+		wantSummary string
+	}{
+		{
+			name: "SubIssueAddedEvent surfaces the linked sub-issue",
+			node: func() issueTimelineNode {
+				n := issueTimelineNode{Typename: "SubIssueAddedEvent"}
+				n.SubIssueAddedEvent.Actor.Login = "alice"
+				n.SubIssueAddedEvent.CreatedAt = dt(ts)
+				n.SubIssueAddedEvent.SubIssue.Number = 42
+				n.SubIssueAddedEvent.SubIssue.Title = "Child task"
+				n.SubIssueAddedEvent.SubIssue.Repository.NameWithOwner = "octo/repo"
+				return n
+			}(),
+			wantSummary: "added sub-issue octo/repo#42: Child task",
+		},
+		{
+			name: "ParentIssueAddedEvent surfaces the linked parent",
+			node: func() issueTimelineNode {
+				n := issueTimelineNode{Typename: "ParentIssueAddedEvent"}
+				n.ParentIssueAddedEvent.Actor.Login = "alice"
+				n.ParentIssueAddedEvent.CreatedAt = dt(ts)
+				n.ParentIssueAddedEvent.Parent.Number = 1
+				n.ParentIssueAddedEvent.Parent.Title = "Tracking issue"
+				n.ParentIssueAddedEvent.Parent.Repository.NameWithOwner = "octo/repo"
+				return n
+			}(),
+			wantSummary: "added parent issue octo/repo#1: Tracking issue",
+		},
+		{
+			name: "BlockingAddedEvent surfaces the blocked downstream issue",
+			node: func() issueTimelineNode {
+				n := issueTimelineNode{Typename: "BlockingAddedEvent"}
+				n.BlockingAddedEvent.Actor.Login = "alice"
+				n.BlockingAddedEvent.CreatedAt = dt(ts)
+				n.BlockingAddedEvent.BlockedIssue.Number = 5
+				n.BlockingAddedEvent.BlockedIssue.Title = "Consumer"
+				n.BlockingAddedEvent.BlockedIssue.Repository.NameWithOwner = "octo/consumer"
+				return n
+			}(),
+			wantSummary: "blocking octo/consumer#5: Consumer",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got := dispatchIssueNode(tt.node)
+			if got.Summary != tt.wantSummary {
+				t.Errorf("Summary = %q, want %q", got.Summary, tt.wantSummary)
+			}
+			if got.Actor != "alice" {
+				t.Errorf("Actor = %q, want %q", got.Actor, "alice")
+			}
+		})
 	}
 }
 

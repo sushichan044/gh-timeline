@@ -65,6 +65,46 @@ func dispatchPRNode(n prTimelineNode) Event {
 		return handleMovedColumns(t, n.MovedColumnsInProjectEvent)
 	case "UserBlockedEvent":
 		return handleUserBlocked(t, n.UserBlockedEvent)
+	case "SubIssueAddedEvent":
+		return handleSubIssue(t, "added sub-issue", n.SubIssueAddedEvent)
+	case "SubIssueRemovedEvent":
+		return handleSubIssue(t, "removed sub-issue", n.SubIssueRemovedEvent)
+	case "ParentIssueAddedEvent":
+		return handleParentIssue(t, "added parent issue", n.ParentIssueAddedEvent)
+	case "ParentIssueRemovedEvent":
+		return handleParentIssue(t, "removed parent issue", n.ParentIssueRemovedEvent)
+	case "BlockedByAddedEvent":
+		return handleBlockedBy(t, "blocked by", n.BlockedByAddedEvent)
+	case "BlockedByRemovedEvent":
+		return handleBlockedBy(t, "no longer blocked by", n.BlockedByRemovedEvent)
+	case "BlockingAddedEvent":
+		return handleBlocking(t, "blocking", n.BlockingAddedEvent)
+	case "BlockingRemovedEvent":
+		return handleBlocking(t, "no longer blocking", n.BlockingRemovedEvent)
+	case "AddedToProjectV2Event":
+		return handleProjectV2Change(t, "added to project", n.AddedToProjectV2Event)
+	case "RemovedFromProjectV2Event":
+		return handleProjectV2Change(t, "removed from project", n.RemovedFromProjectV2Event)
+	case "ProjectV2ItemStatusChangedEvent":
+		return handleProjectV2StatusChanged(t, n.ProjectV2ItemStatusChangedEvent)
+	case "ConvertedFromDraftEvent":
+		return handleProjectV2Change(t, "converted from draft", n.ConvertedFromDraftEvent)
+	case "IssueFieldAddedEvent":
+		return handleIssueFieldAdded(t, n.IssueFieldAddedEvent)
+	case "IssueFieldChangedEvent":
+		return handleIssueFieldChanged(t, n.IssueFieldChangedEvent)
+	case "IssueFieldRemovedEvent":
+		return handleIssueFieldRemoved(t, n.IssueFieldRemovedEvent)
+	case "IssueTypeAddedEvent":
+		return handleIssueType(t, "set issue type to", n.IssueTypeAddedEvent)
+	case "IssueTypeChangedEvent":
+		return handleIssueTypeChanged(t, n.IssueTypeChangedEvent)
+	case "IssueTypeRemovedEvent":
+		return handleIssueType(t, "removed issue type", n.IssueTypeRemovedEvent)
+	case "IssueCommentPinnedEvent":
+		return handleIssueCommentPin(t, "pinned comment", n.IssueCommentPinnedEvent)
+	case "IssueCommentUnpinnedEvent":
+		return handleIssueCommentPin(t, "unpinned comment", n.IssueCommentUnpinnedEvent)
 
 	// PR-only
 	case "PullRequestCommit":
@@ -201,6 +241,46 @@ func dispatchIssueNode(n issueTimelineNode) Event {
 		return handleMovedColumns(t, n.MovedColumnsInProjectEvent)
 	case "UserBlockedEvent":
 		return handleUserBlocked(t, n.UserBlockedEvent)
+	case "SubIssueAddedEvent":
+		return handleSubIssue(t, "added sub-issue", n.SubIssueAddedEvent)
+	case "SubIssueRemovedEvent":
+		return handleSubIssue(t, "removed sub-issue", n.SubIssueRemovedEvent)
+	case "ParentIssueAddedEvent":
+		return handleParentIssue(t, "added parent issue", n.ParentIssueAddedEvent)
+	case "ParentIssueRemovedEvent":
+		return handleParentIssue(t, "removed parent issue", n.ParentIssueRemovedEvent)
+	case "BlockedByAddedEvent":
+		return handleBlockedBy(t, "blocked by", n.BlockedByAddedEvent)
+	case "BlockedByRemovedEvent":
+		return handleBlockedBy(t, "no longer blocked by", n.BlockedByRemovedEvent)
+	case "BlockingAddedEvent":
+		return handleBlocking(t, "blocking", n.BlockingAddedEvent)
+	case "BlockingRemovedEvent":
+		return handleBlocking(t, "no longer blocking", n.BlockingRemovedEvent)
+	case "AddedToProjectV2Event":
+		return handleProjectV2Change(t, "added to project", n.AddedToProjectV2Event)
+	case "RemovedFromProjectV2Event":
+		return handleProjectV2Change(t, "removed from project", n.RemovedFromProjectV2Event)
+	case "ProjectV2ItemStatusChangedEvent":
+		return handleProjectV2StatusChanged(t, n.ProjectV2ItemStatusChangedEvent)
+	case "ConvertedFromDraftEvent":
+		return handleProjectV2Change(t, "converted from draft", n.ConvertedFromDraftEvent)
+	case "IssueFieldAddedEvent":
+		return handleIssueFieldAdded(t, n.IssueFieldAddedEvent)
+	case "IssueFieldChangedEvent":
+		return handleIssueFieldChanged(t, n.IssueFieldChangedEvent)
+	case "IssueFieldRemovedEvent":
+		return handleIssueFieldRemoved(t, n.IssueFieldRemovedEvent)
+	case "IssueTypeAddedEvent":
+		return handleIssueType(t, "set issue type to", n.IssueTypeAddedEvent)
+	case "IssueTypeChangedEvent":
+		return handleIssueTypeChanged(t, n.IssueTypeChangedEvent)
+	case "IssueTypeRemovedEvent":
+		return handleIssueType(t, "removed issue type", n.IssueTypeRemovedEvent)
+	case "IssueCommentPinnedEvent":
+		return handleIssueCommentPin(t, "pinned comment", n.IssueCommentPinnedEvent)
+	case "IssueCommentUnpinnedEvent":
+		return handleIssueCommentPin(t, "unpinned comment", n.IssueCommentUnpinnedEvent)
 	}
 	return Event{Type: t}
 }
@@ -693,6 +773,188 @@ func handleDeploymentEnvChanged(typename string, f deploymentEnvironmentChangedE
 		Timestamp: f.CreatedAt.Time,
 		Summary:   summary,
 		Ref:       Ref{NodeID: graphqlIDString(f.ID)},
+	}
+}
+
+// issueRefSummary appends the standard "OWNER/REPO#N: TITLE" suffix to verb
+// when the referenced issue's number is non-zero. The handlers for sub-issue,
+// parent-issue, and blocking pairs all share this shape.
+func issueRefSummary(verb string, ref issueRefFragment) string {
+	num := int(ref.Number)
+	if num == 0 {
+		return verb
+	}
+	repo := string(ref.Repository.NameWithOwner)
+	summary := fmt.Sprintf("%s %s#%d", verb, repo, num)
+	if title := string(ref.Title); title != "" {
+		summary = fmt.Sprintf("%s: %s", summary, truncate(title))
+	}
+	return summary
+}
+
+func handleSubIssue(typename, verb string, f subIssueEventFragment) Event {
+	return Event{
+		Type:      typename,
+		Actor:     string(f.Actor.Login),
+		Timestamp: f.CreatedAt.Time,
+		Summary:   issueRefSummary(verb, f.SubIssue),
+		Ref:       Ref{NodeID: graphqlIDString(f.ID)},
+	}
+}
+
+func handleParentIssue(typename, verb string, f parentIssueEventFragment) Event {
+	return Event{
+		Type:      typename,
+		Actor:     string(f.Actor.Login),
+		Timestamp: f.CreatedAt.Time,
+		Summary:   issueRefSummary(verb, f.Parent),
+		Ref:       Ref{NodeID: graphqlIDString(f.ID)},
+	}
+}
+
+func handleBlockedBy(typename, verb string, f blockedByEventFragment) Event {
+	return Event{
+		Type:      typename,
+		Actor:     string(f.Actor.Login),
+		Timestamp: f.CreatedAt.Time,
+		Summary:   issueRefSummary(verb, f.BlockingIssue),
+		Ref:       Ref{NodeID: graphqlIDString(f.ID)},
+	}
+}
+
+func handleBlocking(typename, verb string, f blockingEventFragment) Event {
+	return Event{
+		Type:      typename,
+		Actor:     string(f.Actor.Login),
+		Timestamp: f.CreatedAt.Time,
+		Summary:   issueRefSummary(verb, f.BlockedIssue),
+		Ref:       Ref{NodeID: graphqlIDString(f.ID)},
+	}
+}
+
+func handleProjectV2Change(typename, verb string, f projectV2ChangeEventFragment) Event {
+	summary := verb
+	if title := string(f.Project.Title); title != "" {
+		summary = fmt.Sprintf("%s %q", verb, title)
+	}
+	return Event{
+		Type:      typename,
+		Actor:     string(f.Actor.Login),
+		Timestamp: f.CreatedAt.Time,
+		Summary:   summary,
+		Ref:       Ref{NodeID: graphqlIDString(f.ID)},
+	}
+}
+
+func handleProjectV2StatusChanged(typename string, f projectV2StatusChangedEventFragment) Event {
+	prev := string(f.PreviousStatus)
+	curr := string(f.Status)
+	summary := fmt.Sprintf("status changed: %q → %q", prev, curr)
+	if title := string(f.Project.Title); title != "" {
+		summary = fmt.Sprintf("status changed in project %q: %q → %q", title, prev, curr)
+	}
+	return Event{
+		Type:      typename,
+		Actor:     string(f.Actor.Login),
+		Timestamp: f.CreatedAt.Time,
+		Summary:   summary,
+		Ref:       Ref{NodeID: graphqlIDString(f.ID)},
+	}
+}
+
+func handleIssueFieldAdded(typename string, f issueFieldAddedEventFragment) Event {
+	name := string(f.IssueField.IssueFieldCommon.Name)
+	summary := "added field"
+	if name != "" {
+		summary = fmt.Sprintf("added field %q", name)
+	}
+	if val := string(f.Value); val != "" {
+		summary = fmt.Sprintf("%s: %s", summary, truncate(val))
+	}
+	return Event{
+		Type:      typename,
+		Actor:     string(f.Actor.Login),
+		Timestamp: f.CreatedAt.Time,
+		Summary:   summary,
+		Ref:       Ref{NodeID: graphqlIDString(f.ID)},
+	}
+}
+
+func handleIssueFieldChanged(typename string, f issueFieldChangedEventFragment) Event {
+	name := string(f.IssueField.IssueFieldCommon.Name)
+	prev := string(f.PreviousValue)
+	curr := string(f.NewValue)
+	summary := "changed field"
+	if name != "" {
+		summary = fmt.Sprintf("changed field %q", name)
+	}
+	if prev != "" || curr != "" {
+		summary = fmt.Sprintf("%s: %q → %q", summary, prev, curr)
+	}
+	return Event{
+		Type:      typename,
+		Actor:     string(f.Actor.Login),
+		Timestamp: f.CreatedAt.Time,
+		Summary:   summary,
+		Ref:       Ref{NodeID: graphqlIDString(f.ID)},
+	}
+}
+
+func handleIssueFieldRemoved(typename string, f issueFieldRemovedEventFragment) Event {
+	summary := "removed field"
+	if name := string(f.IssueField.IssueFieldCommon.Name); name != "" {
+		summary = fmt.Sprintf("removed field %q", name)
+	}
+	return Event{
+		Type:      typename,
+		Actor:     string(f.Actor.Login),
+		Timestamp: f.CreatedAt.Time,
+		Summary:   summary,
+		Ref:       Ref{NodeID: graphqlIDString(f.ID)},
+	}
+}
+
+func handleIssueType(typename, verb string, f issueTypeEventFragment) Event {
+	summary := verb
+	if name := string(f.IssueType.Name); name != "" {
+		summary = fmt.Sprintf("%s %q", verb, name)
+	}
+	return Event{
+		Type:      typename,
+		Actor:     string(f.Actor.Login),
+		Timestamp: f.CreatedAt.Time,
+		Summary:   summary,
+		Ref:       Ref{NodeID: graphqlIDString(f.ID)},
+	}
+}
+
+func handleIssueTypeChanged(typename string, f issueTypeChangedEventFragment) Event {
+	prev := string(f.PrevIssueType.Name)
+	curr := string(f.IssueType.Name)
+	summary := "changed issue type"
+	if prev != "" || curr != "" {
+		summary = fmt.Sprintf("changed issue type: %q → %q", prev, curr)
+	}
+	return Event{
+		Type:      typename,
+		Actor:     string(f.Actor.Login),
+		Timestamp: f.CreatedAt.Time,
+		Summary:   summary,
+		Ref:       Ref{NodeID: graphqlIDString(f.ID)},
+	}
+}
+
+func handleIssueCommentPin(typename, verb string, f issueCommentPinEventFragment) Event {
+	return Event{
+		Type:      typename,
+		Actor:     string(f.Actor.Login),
+		Timestamp: f.CreatedAt.Time,
+		Summary:   verb,
+		Ref: Ref{
+			NodeID:    graphqlIDString(f.ID),
+			CommentID: f.IssueComment.DatabaseID,
+			URL:       uriString(f.IssueComment.URL),
+		},
 	}
 }
 

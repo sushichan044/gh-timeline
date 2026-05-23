@@ -214,6 +214,127 @@ type userBlockedEventFragment struct {
 	BlockDuration githubv4.String
 }
 
+// issueRefFragment captures the {repo, number, title} triple used by the
+// sub-issue / parent / blocking event family. The structure mirrors what
+// subjectFragment exposes for the Issue branch, but these events reference
+// the related issue directly without going through a union.
+type issueRefFragment struct {
+	Number     githubv4.Int
+	Title      githubv4.String
+	Repository struct {
+		NameWithOwner githubv4.String
+	}
+}
+
+type subIssueEventFragment struct {
+	commonEvent
+
+	SubIssue issueRefFragment
+}
+
+type parentIssueEventFragment struct {
+	commonEvent
+
+	Parent issueRefFragment
+}
+
+type blockedByEventFragment struct {
+	commonEvent
+
+	BlockingIssue issueRefFragment
+}
+
+type blockingEventFragment struct {
+	commonEvent
+
+	BlockedIssue issueRefFragment
+}
+
+// projectV2ChangeEventFragment is shared by AddedToProjectV2Event,
+// RemovedFromProjectV2Event, and ConvertedFromDraftEvent — all three expose
+// the same {project} shape.
+type projectV2ChangeEventFragment struct {
+	commonEvent
+
+	Project struct {
+		Number githubv4.Int
+		Title  githubv4.String
+	}
+}
+
+type projectV2StatusChangedEventFragment struct {
+	commonEvent
+
+	Project struct {
+		Number githubv4.Int
+		Title  githubv4.String
+	}
+	PreviousStatus githubv4.String
+	Status         githubv4.String
+}
+
+// issueFieldUnionFragment selects the common `name` from the IssueFields
+// union (IssueFieldDate | IssueFieldNumber | IssueFieldSingleSelect |
+// IssueFieldText). All four implement the IssueFieldCommon interface, so a
+// single `... on IssueFieldCommon` spread covers them.
+type issueFieldUnionFragment struct {
+	IssueFieldCommon struct {
+		Name githubv4.String
+	} `graphql:"... on IssueFieldCommon"`
+}
+
+type issueFieldAddedEventFragment struct {
+	commonEvent
+
+	IssueField issueFieldUnionFragment
+	Value      githubv4.String
+}
+
+type issueFieldChangedEventFragment struct {
+	commonEvent
+
+	IssueField    issueFieldUnionFragment
+	PreviousValue githubv4.String
+	NewValue      githubv4.String
+}
+
+type issueFieldRemovedEventFragment struct {
+	commonEvent
+
+	IssueField issueFieldUnionFragment
+}
+
+type issueTypeEventFragment struct {
+	commonEvent
+
+	IssueType struct {
+		Name githubv4.String
+	}
+}
+
+type issueTypeChangedEventFragment struct {
+	commonEvent
+
+	IssueType struct {
+		Name githubv4.String
+	}
+	PrevIssueType struct {
+		Name githubv4.String
+	}
+}
+
+// issueCommentPinEventFragment carries the pinned/unpinned IssueComment's
+// identifiers so downstream tooling can fetch the comment body via `gh api`.
+type issueCommentPinEventFragment struct {
+	commonEvent
+
+	IssueComment struct {
+		ID         githubv4.ID
+		DatabaseID int64 `graphql:"databaseId"`
+		URL        githubv4.URI
+	}
+}
+
 // --- PR-only fragments -----------------------------------------------------
 
 type pullRequestCommitFragment struct {
