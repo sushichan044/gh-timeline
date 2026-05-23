@@ -142,21 +142,45 @@ case "FooEvent":
 
 ### 3.4 Handler 関数 (`internal/timeline/dispatch.go`)
 
-既存パターンに揃える:
+既存 handler の summary は **動詞句 + 対象フィールド** の形に統一されている
+(`added label bug`, `assigned bea`, `merged deadbee into main` 等)。フィールドが
+空でも動詞句は残すことで、最低限の意味を保つ。新規 handler もこの流儀に揃える:
 
 ```go
 func handleFooEvent(typename string, f fooEventFragment) Event {
+    verb := "did foo to"  // ⚠️ 文言は人間判断
+    summary := verb
+    if target := string(f.SomeSpecificField); target != "" {
+        summary = fmt.Sprintf("%s %s", verb, target)
+    }
     return Event{
         Type:      typename,
         Actor:     string(f.Actor.Login),
         Timestamp: f.CreatedAt.Time,
-        Summary:   string(f.SomeSpecificField),  // ⚠️ ここの文言は人間判断
+        Summary:   summary,
         Ref:       Ref{NodeID: graphqlIDString(f.ID)},
     }
 }
 ```
 
-⚠️ **人間判断**: summary の文言。既存 handler の流儀 (動詞句、引用、`@actor` 風など) に揃える。
+ペアになる add/remove 型 event (Labeled/Unlabeled, Assigned/Unassigned,
+Milestoned/Demilestoned, ReviewRequested/ReviewRequestRemoved 等) は **同じ
+handler を共有して `typename` で動詞を切り替える** のが既存流儀:
+
+```go
+verb := "added label"
+if typename == "UnlabeledEvent" {
+    verb = "removed label"
+}
+```
+
+⚠️ **人間判断**:
+
+- 動詞の選定 (`added label` か `labeled` か など)
+- 補助情報をどこまで summary に押し込むか (truncate(title) や `(column %q)` のような
+  括弧書き、`(%s)` の duration 等。`handleConnected` / `handleProjectChange` /
+  `handleUserBlocked` が実例)
+- SHA を入れるなら `shortSHA()` を通すこと (`handleMerged` 参照)
 
 ### 3.5 削除パスは逆順で実施
 
@@ -176,23 +200,28 @@ mise run test -- -run TestDispatchCoverage
 
 ### 4.2 Rich summary test (手動追加)
 
-`internal/timeline/dispatch_test.go` の table-driven テストに代表的なケースを追加:
+`internal/timeline/dispatch_test.go` の table-driven テストに代表的なケースを追加。
+`name` は **何を assert しているかが伝わる文** にする (例: "FooEvent uses the
+foo'd verb with target name") — `assert behavior, not implementation` の原則:
 
 ```go
 {
-    name: "FooEvent summarises SomeSpecificField",
+    name: "FooEvent uses the foo'd verb with target name",
     node: func() prTimelineNode {
         n := prTimelineNode{Typename: "FooEvent"}
         n.FooEvent.Actor.Login = "alice"
         n.FooEvent.CreatedAt = dt(ts)
-        n.FooEvent.SomeSpecificField = "expected-summary"
+        n.FooEvent.SomeSpecificField = "bar"
         return n
     }(),
     wantType:    "FooEvent",
     wantActor:   "alice",
-    wantSummary: "expected-summary",
+    wantSummary: "foo'd bar",
 },
 ```
+
+ペア event を追加した場合は、**両方の typename** と **特定フィールドが空** の
+fallback も別ケースとしてカバーする。
 
 ### 4.3 Full gate
 

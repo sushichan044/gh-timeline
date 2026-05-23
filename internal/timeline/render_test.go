@@ -23,7 +23,7 @@ func sampleEvents() []timeline.Event {
 			Type:      "LabeledEvent",
 			Actor:     "alice",
 			Timestamp: time.Date(2026, 1, 2, 10, 30, 0, 0, time.UTC),
-			Summary:   "bug",
+			Summary:   "added label bug",
 		},
 	}
 }
@@ -41,7 +41,7 @@ func TestRenderText_oneLinePerEvent(t *testing.T) {
 	if lines[0] != "2026-01-01T09:00:00Z [PullRequestReview] @bob: APPROVED" {
 		t.Errorf("line 1 = %q", lines[0])
 	}
-	if lines[1] != "2026-01-02T10:30:00Z [LabeledEvent] @alice: bug" {
+	if lines[1] != "2026-01-02T10:30:00Z [LabeledEvent] @alice: added label bug" {
 		t.Errorf("line 2 = %q", lines[1])
 	}
 }

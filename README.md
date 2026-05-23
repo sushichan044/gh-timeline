@@ -68,9 +68,9 @@ repository, and silently overriding it would surprise users.
 ### Text (default for humans)
 
 ```
-2026-01-02T10:00:00Z [LabeledEvent] @alice: bug
+2026-01-02T10:00:00Z [LabeledEvent] @alice: added label bug
 2026-01-02T10:05:00Z [PullRequestReview] @bob: APPROVED
-2026-01-02T10:30:00Z [MergedEvent] @carol: merged by carol
+2026-01-02T10:30:00Z [MergedEvent] @carol: merged deadbee into main
 2026-01-02T10:31:00Z [SubscribedEvent] @dave
 ```
 
