@@ -8,13 +8,6 @@ type Repo struct {
 	Name  string
 }
 
-// pageInfo is the cursor pagination data shurcooL/githubv4 returns alongside
-// each timelineItems page.
-type pageInfo struct {
-	EndCursor   githubv4.String
-	HasNextPage githubv4.Boolean
-}
-
 // prTimelineNode is one timeline item under a PullRequest. The Typename field
 // holds the GraphQL `__typename` discriminator; the matching `... on Foo`
 // fragment is populated by shurcooL/githubv4 while the rest are zero values.
@@ -185,21 +178,25 @@ type issueTimelineNode struct {
 // timelineQuery is the top-level query shape passed to githubv4.Client.Query.
 // Only one of the two `... on` branches under IssueOrPullRequest is populated
 // per response; the other stays zero-valued.
+//
+// Pages are addressed by an absolute `skip` offset rather than a cursor. The
+// first request (skip=0) carries TotalCount so the caller can dispatch the
+// remaining offsets in parallel.
 type timelineQuery struct {
 	Repository struct {
 		IssueOrPullRequest struct {
 			Typename    githubv4.String `graphql:"__typename"`
 			PullRequest struct {
 				TimelineItems struct {
-					Nodes    []prTimelineNode
-					PageInfo pageInfo
-				} `graphql:"timelineItems(first: 100, after: $cursor)"`
+					TotalCount githubv4.Int
+					Nodes      []prTimelineNode
+				} `graphql:"timelineItems(first: 100, skip: $skip)"`
 			} `graphql:"... on PullRequest"`
 			Issue struct {
 				TimelineItems struct {
-					Nodes    []issueTimelineNode
-					PageInfo pageInfo
-				} `graphql:"timelineItems(first: 100, after: $cursor)"`
+					TotalCount githubv4.Int
+					Nodes      []issueTimelineNode
+				} `graphql:"timelineItems(first: 100, skip: $skip)"`
 			} `graphql:"... on Issue"`
 		} `graphql:"issueOrPullRequest(number: $number)"`
 	} `graphql:"repository(owner: $owner, name: $name)"`
