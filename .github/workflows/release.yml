@@ -14,7 +14,8 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
-      - uses: cli/gh-extension-precompile@9e2237c30f869ad3bcaed6a4be2cd43564dd421b # v2.1.0
+      - uses: sushichan044/cli-gh-extension-precompile@fc00f51d32383d3b0e6a1e35d1f1fd22930f0cf9
         with:
           generate_attestations: true
           go_version_file: go.mod
+          use_existing_draft: true
