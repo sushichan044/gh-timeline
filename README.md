@@ -1,18 +1,14 @@
 # gh-timeline
 
-A [`gh`](https://cli.github.com/) extension that prints an Issue or Pull
-Request's full event timeline — commits, reviews, comments, force pushes,
-labels, assignments, merges, and every other timeline item GitHub exposes —
-in a single chronological view.
+![```bash gh timeline https://github.com/sushichan044/cc-hooks-ts/issues/20
+2025-11-16T07:32:34Z [AssignedEvent] @sushichan044: assigned sushichan044
+2025-11-16T07:59:08Z [IssueComment] @sushichan044: done by https://github.com/sushichan044/cc-hooks-ts/pull/21
+2025-11-16T07:59:08Z [ClosedEvent] @sushichan044: closed: COMPLETED```](/docs/assets/timeline.png)
 
-Data is fetched via GitHub's GraphQL API
-(`issueOrPullRequest.timelineItems`), so the same `<number>` argument works
-for both issues and PRs.
+A [`gh`](https://cli.github.com/) extension to view the full timeline of any GitHub issue or PR.
 
-Designed to be readable in the terminal **and** trivially parseable by AI
-agents. When invoked under an AI agent runtime (Claude Code, Cursor, Codex,
-Gemini CLI, …) the extension auto-switches to JSON output and exposes its
-embedded skill via `--help`.
+When invoked under an AI agent runtime (Claude Code, Cursor, Codex, Gemini CLI, …) the
+extension auto-switches to JSON output.
 
 ## Install
 
@@ -28,30 +24,23 @@ gh extension install .
 
 ## Usage
 
-The positional argument is either an Issue/PR number or a full GitHub URL —
-both work for issues and PRs. GitHub Enterprise Server URLs are accepted as
-long as the host is reachable with the same `gh auth` configuration.
-
 ```sh
 # Inside a clone of the repo
-gh timeline 1234
+gh timeline 12345
 
 # Or from anywhere
-gh timeline --repo cli/cli 1234
+gh timeline --repo cli/cli 12345
 
 # Paste a URL directly (no --repo needed)
-gh timeline https://github.com/cli/cli/pull/1234
-gh timeline https://github.com/cli/cli/issues/5678
+gh timeline https://github.com/cli/cli/issues/12345
+gh timeline https://github.com/cli/cli/pull/5677
 
 # Force JSON
-gh timeline --json --repo cli/cli 1234 | jq '.[] | {type, actor, timestamp}'
+gh timeline --json --repo cli/cli 12345 | jq '.[] | {type, actor, timestamp}'
 
 # Force text even under an AI agent
-gh timeline --no-json --repo cli/cli 1234
+gh timeline --no-json --repo cli/cli 12345
 ```
-
-`--repo` cannot be combined with a URL — the URL already carries the
-repository, and silently overriding it would surprise users.
 
 ### Flags
 
@@ -68,16 +57,20 @@ repository, and silently overriding it would surprise users.
 ### Text (default for humans)
 
 ```
-2026-01-02T10:00:00Z [LabeledEvent] @alice: added label bug
-2026-01-02T10:05:00Z [PullRequestReview] @bob: APPROVED
-2026-01-02T10:30:00Z [MergedEvent] @carol: merged deadbee into main
-2026-01-02T10:31:00Z [SubscribedEvent] @dave
+$ gh timeline https://github.com/golang/go/issues/50000
+2021-12-06T20:30:19Z [IssueComment] @toothrot: #26479 may also be relevant.
+2021-12-06T20:30:29Z [MilestonedEvent] @toothrot: added to milestone "Backlog"
+2021-12-06T20:30:41Z [LabeledEvent] @toothrot: added label NeedsInvestigation
+2021-12-07T02:23:45Z [IssueComment] @zzkcode: @toothrot Thanks for your reply.
+2021-12-07T02:23:45Z [MentionedEvent] @toothrot
+2021-12-07T02:23:45Z [SubscribedEvent] @toothrot
+2021-12-12T08:17:39Z [IssueComment] @zzkcode: Finally, I figure it out and everything is working as expected, so it's…
+2021-12-12T08:17:39Z [MentionedEvent] @toothrot
+2021-12-12T08:17:39Z [SubscribedEvent] @toothrot
+2021-12-12T08:17:53Z [ClosedEvent] @zzkcode: closed: COMPLETED
+2022-12-12T09:46:12Z [LockedEvent] @golang: locked
+2022-12-12T09:46:13Z [LabeledEvent] @gopherbot: added label FrozenDueToAge
 ```
-
-When an event has no meaningful one-line summary (e.g. `SubscribedEvent`, or
-a brand-new `__typename` the extension does not have a typed handler for),
-the trailing `: <summary>` segment is dropped and the line ends after the
-actor.
 
 ### JSON (default for AI agents, or with `--json`)
 
@@ -97,10 +90,9 @@ actor.
 ]
 ```
 
-The `type` value is the GraphQL `__typename` of the event (PascalCase).
-Summaries are truncated to 72 characters. Use the `ref.sha`,
-`ref.review_id`, `ref.comment_id`, or `ref.url` fields with `gh api` to fetch
-full content when needed.
+`type` is the GraphQL `__typename` (PascalCase). Summaries are truncated to
+72 characters. Use `ref.sha`, `ref.review_id`, `ref.comment_id`, or
+`ref.url` with `gh api` to fetch full content when needed.
 
 ## AI agent skill
 
@@ -113,19 +105,6 @@ gh timeline skills install      # writes ~/.agents/skills/gh-timeline/SKILL.md
 gh timeline skills status
 gh timeline skills uninstall
 ```
-
-## Releases
-
-Tagging `vX.Y.Z` triggers
-[`cli/gh-extension-precompile`](https://github.com/cli/gh-extension-precompile)
-to build and attach cross-platform binaries (linux/darwin/windows ×
-amd64/arm64).
-
-## Repository topic (manual step)
-
-`gh` discovers extensions by the `gh-extension` topic. After the first
-release, set the topic on the GitHub repository settings page — there is no
-API for this from the extension itself.
 
 ## License
 
