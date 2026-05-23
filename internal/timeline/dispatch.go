@@ -270,31 +270,55 @@ func handleIssueComment(typename string, f issueCommentFragment) Event {
 }
 
 func handleLabeled(typename string, f labeledEventFragment) Event {
+	verb := "added label"
+	if typename == "UnlabeledEvent" {
+		verb = "removed label"
+	}
+	summary := verb
+	if name := string(f.Label.Name); name != "" {
+		summary = fmt.Sprintf("%s %s", verb, name)
+	}
 	return Event{
 		Type:      typename,
 		Actor:     string(f.Actor.Login),
 		Timestamp: f.CreatedAt.Time,
-		Summary:   string(f.Label.Name),
+		Summary:   summary,
 		Ref:       Ref{NodeID: graphqlIDString(f.ID)},
 	}
 }
 
 func handleAssigned(typename string, f assignedEventFragment) Event {
+	verb := "assigned"
+	if typename == "UnassignedEvent" {
+		verb = "unassigned"
+	}
+	summary := verb
+	if target := f.Assignee.pick(); target != "" {
+		summary = fmt.Sprintf("%s %s", verb, target)
+	}
 	return Event{
 		Type:      typename,
 		Actor:     string(f.Actor.Login),
 		Timestamp: f.CreatedAt.Time,
-		Summary:   f.Assignee.pick(),
+		Summary:   summary,
 		Ref:       Ref{NodeID: graphqlIDString(f.ID)},
 	}
 }
 
 func handleMilestoned(typename string, f milestonedEventFragment) Event {
+	verb := "added to milestone"
+	if typename == "DemilestonedEvent" {
+		verb = "removed from milestone"
+	}
+	summary := verb
+	if title := string(f.MilestoneTitle); title != "" {
+		summary = fmt.Sprintf("%s %q", verb, title)
+	}
 	return Event{
 		Type:      typename,
 		Actor:     string(f.Actor.Login),
 		Timestamp: f.CreatedAt.Time,
-		Summary:   string(f.MilestoneTitle),
+		Summary:   summary,
 		Ref:       Ref{NodeID: graphqlIDString(f.ID)},
 	}
 }
@@ -418,10 +442,13 @@ func handleTransferred(typename string, f transferredEventFragment) Event {
 }
 
 func handleConnected(typename, verb string, f connectedEventFragment) Event {
-	repo, num, _ := subjectInfo(f.Subject)
+	repo, num, title := subjectInfo(f.Subject)
 	summary := verb
 	if num != 0 {
 		summary = fmt.Sprintf("%s %s#%d", verb, repo, num)
+		if title != "" {
+			summary = fmt.Sprintf("%s: %s", summary, truncate(title))
+		}
 	}
 	return Event{
 		Type:      typename,
@@ -436,6 +463,9 @@ func handleProjectChange(typename, verb string, f projectChangeEventFragment) Ev
 	summary := verb
 	if name := string(f.Project.Name); name != "" {
 		summary = fmt.Sprintf("%s %q", verb, name)
+	}
+	if col := string(f.ProjectColumnName); col != "" {
+		summary = fmt.Sprintf("%s (column %q)", summary, col)
 	}
 	return Event{
 		Type:      typename,
@@ -463,6 +493,9 @@ func handleUserBlocked(typename string, f userBlockedEventFragment) Event {
 	summary := "blocked user"
 	if target != "" {
 		summary = fmt.Sprintf("blocked %s", target)
+	}
+	if dur := string(f.BlockDuration); dur != "" {
+		summary = fmt.Sprintf("%s (%s)", summary, dur)
 	}
 	return Event{
 		Type:      typename,
@@ -514,31 +547,44 @@ func handlePullRequestReview(typename string, f pullRequestReviewFragment) Event
 }
 
 func handleMerged(typename string, f mergedEventFragment) Event {
-	actor := string(f.Actor.Login)
+	sha := string(f.Commit.OID)
+	mergeRef := string(f.MergeRefName)
 	summary := "merged"
-	if actor != "" {
-		summary = fmt.Sprintf("merged by %s", actor)
+	switch {
+	case sha != "" && mergeRef != "":
+		summary = fmt.Sprintf("merged %s into %s", shortSHA(sha), mergeRef)
+	case sha != "":
+		summary = fmt.Sprintf("merged %s", shortSHA(sha))
+	case mergeRef != "":
+		summary = fmt.Sprintf("merged into %s", mergeRef)
 	}
 	return Event{
 		Type:      typename,
-		Actor:     actor,
+		Actor:     string(f.Actor.Login),
 		Timestamp: f.CreatedAt.Time,
 		Summary:   summary,
 		Ref: Ref{
 			NodeID: graphqlIDString(f.ID),
-			SHA:    string(f.Commit.OID),
+			SHA:    sha,
 			URL:    uriString(f.URL),
 		},
 	}
 }
 
 func handleReviewRequested(typename string, f reviewRequestedEventFragment) Event {
-	target := pickReviewerLabel(f.RequestedReviewer)
+	verb := "requested review from"
+	if typename == "ReviewRequestRemovedEvent" {
+		verb = "removed review request from"
+	}
+	summary := verb
+	if target := pickReviewerLabel(f.RequestedReviewer); target != "" {
+		summary = fmt.Sprintf("%s %s", verb, target)
+	}
 	return Event{
 		Type:      typename,
 		Actor:     string(f.Actor.Login),
 		Timestamp: f.CreatedAt.Time,
-		Summary:   target,
+		Summary:   summary,
 		Ref:       Ref{NodeID: graphqlIDString(f.ID)},
 	}
 }

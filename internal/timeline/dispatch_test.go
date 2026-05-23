@@ -80,7 +80,7 @@ func TestDispatchPRNode_richSummariesPerType(t *testing.T) {
 			wantSummary: "hello there",
 		},
 		{
-			name: "LabeledEvent surfaces the label name",
+			name: "LabeledEvent uses the added verb with label name",
 			node: func() prTimelineNode {
 				n := prTimelineNode{Typename: "LabeledEvent"}
 				n.LabeledEvent.Actor.Login = "dave"
@@ -90,10 +90,10 @@ func TestDispatchPRNode_richSummariesPerType(t *testing.T) {
 			}(),
 			wantType:    "LabeledEvent",
 			wantActor:   "dave",
-			wantSummary: "bug",
+			wantSummary: "added label bug",
 		},
 		{
-			name: "AssignedEvent picks login from the populated union member",
+			name: "AssignedEvent says who got assigned",
 			node: func() prTimelineNode {
 				n := prTimelineNode{Typename: "AssignedEvent"}
 				n.AssignedEvent.Actor.Login = "ada"
@@ -103,10 +103,10 @@ func TestDispatchPRNode_richSummariesPerType(t *testing.T) {
 			}(),
 			wantType:    "AssignedEvent",
 			wantActor:   "ada",
-			wantSummary: "bea",
+			wantSummary: "assigned bea",
 		},
 		{
-			name: "UnlabeledEvent reuses the labeled fragment shape",
+			name: "UnlabeledEvent uses the removed verb",
 			node: func() prTimelineNode {
 				n := prTimelineNode{Typename: "UnlabeledEvent"}
 				n.UnlabeledEvent.Actor.Login = "dave"
@@ -116,23 +116,24 @@ func TestDispatchPRNode_richSummariesPerType(t *testing.T) {
 			}(),
 			wantType:    "UnlabeledEvent",
 			wantActor:   "dave",
-			wantSummary: "wontfix",
+			wantSummary: "removed label wontfix",
 		},
 		{
-			name: "MergedEvent says who merged",
+			name: "MergedEvent shows commit SHA and base ref",
 			node: func() prTimelineNode {
 				n := prTimelineNode{Typename: "MergedEvent"}
 				n.MergedEvent.Actor.Login = "eve"
 				n.MergedEvent.CreatedAt = dt(ts)
-				n.MergedEvent.Commit.OID = "deadbeef"
+				n.MergedEvent.Commit.OID = "deadbeef0000"
+				n.MergedEvent.MergeRefName = "main"
 				return n
 			}(),
 			wantType:    "MergedEvent",
 			wantActor:   "eve",
-			wantSummary: "merged by eve",
+			wantSummary: "merged deadbee into main",
 		},
 		{
-			name: "ReviewRequestedEvent picks user login over team slug",
+			name: "ReviewRequestedEvent says who was asked",
 			node: func() prTimelineNode {
 				n := prTimelineNode{Typename: "ReviewRequestedEvent"}
 				n.ReviewRequestedEvent.Actor.Login = "frank"
@@ -142,7 +143,7 @@ func TestDispatchPRNode_richSummariesPerType(t *testing.T) {
 			}(),
 			wantType:    "ReviewRequestedEvent",
 			wantActor:   "frank",
-			wantSummary: "grace",
+			wantSummary: "requested review from grace",
 		},
 		{
 			name: "ReviewRequestedEvent falls back to team slug when user is empty",
@@ -155,7 +156,20 @@ func TestDispatchPRNode_richSummariesPerType(t *testing.T) {
 			}(),
 			wantType:    "ReviewRequestedEvent",
 			wantActor:   "frank",
-			wantSummary: "team:core",
+			wantSummary: "requested review from team:core",
+		},
+		{
+			name: "ReviewRequestRemovedEvent uses the removed verb",
+			node: func() prTimelineNode {
+				n := prTimelineNode{Typename: "ReviewRequestRemovedEvent"}
+				n.ReviewRequestRemovedEvent.Actor.Login = "frank"
+				n.ReviewRequestRemovedEvent.CreatedAt = dt(ts)
+				n.ReviewRequestRemovedEvent.RequestedReviewer.User.Login = "grace"
+				return n
+			}(),
+			wantType:    "ReviewRequestRemovedEvent",
+			wantActor:   "frank",
+			wantSummary: "removed review request from grace",
 		},
 		{
 			name: "ReadyForReviewEvent uses fixed wording",
@@ -318,7 +332,7 @@ func TestDispatchIssueNode_handlesSharedEvents(t *testing.T) {
 	n.LabeledEvent.Label.Name = "needs-triage"
 
 	got := dispatchIssueNode(n)
-	if got.Type != "LabeledEvent" || got.Actor != "alice" || got.Summary != "needs-triage" {
+	if got.Type != "LabeledEvent" || got.Actor != "alice" || got.Summary != "added label needs-triage" {
 		t.Errorf("unexpected event: %+v", got)
 	}
 }
