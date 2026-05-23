@@ -1,9 +1,7 @@
 package cmd
 
 import (
-	"fmt"
 	"io"
-	"io/fs"
 )
 
 const humanHelp = `gh timeline — render a Pull Request's full event timeline.
@@ -36,18 +34,14 @@ When run under an AI agent (Claude Code, Cursor, Codex, …) the default output
 switches to JSON automatically. Pass --no-json to opt out.
 `
 
-// writeHelp prints the human-facing usage, or the embedded SKILL.md body for
-// agent runtimes. The agent variant is the same content `skills install`
-// drops on disk, so an agent can read it directly from --help.
-func writeHelp(w io.Writer, agent bool, skillFS fs.FS) {
-	if agent && skillFS != nil {
-		body, err := skillContent(skillFS)
-		if err == nil {
-			_, _ = w.Write(body)
-			return
-		}
-		// Falling through to the human help is safer than printing nothing.
-		fmt.Fprintf(w, "warning: could not load embedded skill content: %v\n\n", err)
+// writeHelp prints the human-facing usage, or the detailed agent reference
+// when running under an AI agent runtime. agentHelp comes from the embedded
+// docs/reference.md; when empty (e.g. tests or non-agent paths) writeHelp
+// falls back to the human usage block.
+func writeHelp(w io.Writer, agent bool, agentHelp string) {
+	if agent && agentHelp != "" {
+		_, _ = io.WriteString(w, agentHelp)
+		return
 	}
 	_, _ = io.WriteString(w, humanHelp)
 }

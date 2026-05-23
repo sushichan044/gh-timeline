@@ -7,12 +7,13 @@ import (
 	"errors"
 	"strings"
 	"testing"
-	"testing/fstest"
 	"time"
 
 	"github.com/sushichan044/gh-timeline/cmd"
 	"github.com/sushichan044/gh-timeline/internal/timeline"
 )
+
+const fakeAgentHelp = "# gh timeline — reference\n\nflags, schema, examples here.\n"
 
 // stubQuerier is a no-op timeline.GraphQLQuerier — cmd-level tests inject a
 // canned Fetch result, so the querier is never actually consulted.
@@ -32,16 +33,6 @@ func (f *fakeSkills) Run(_ context.Context, args []string) error {
 	return f.err
 }
 
-// newTestSkillFS mimics the embedded skill bundle so tests can assert that
-// agent --help reads from it without depending on the real //go:embed output.
-func newTestSkillFS() fstest.MapFS {
-	return fstest.MapFS{
-		"skills/gh-timeline/SKILL.md": &fstest.MapFile{
-			Data: []byte("---\nname: gh-timeline\n---\n\n# gh-timeline skill body\n"),
-		},
-	}
-}
-
 func newTestDeps(events []timeline.Event, fetchErr error, agent bool, fs *fakeSkills) cmd.Deps {
 	return cmd.Deps{
 		IsAgent: func() bool { return agent },
@@ -55,7 +46,7 @@ func newTestDeps(events []timeline.Event, fetchErr error, agent bool, fs *fakeSk
 			return timeline.Repo{Owner: "cli", Name: "cli"}, nil
 		},
 		NewSkills: func() (cmd.SkillsRunner, error) { return fs, nil },
-		SkillFS:   newTestSkillFS(),
+		AgentHelp: fakeAgentHelp,
 	}
 }
 
@@ -120,7 +111,7 @@ func TestRun_noJSONForcesTextEvenForAgent(t *testing.T) {
 	}
 }
 
-func TestRun_agentHelpEmitsSkillContent(t *testing.T) {
+func TestRun_agentHelpEmitsReferenceContent(t *testing.T) {
 	t.Parallel()
 	var stdout, stderr bytes.Buffer
 	code := cmd.RunWithDeps(context.Background(),
@@ -131,9 +122,8 @@ func TestRun_agentHelpEmitsSkillContent(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("exit code = %d", code)
 	}
-	out := stdout.String()
-	if !strings.HasPrefix(out, "---") || !strings.Contains(out, "gh-timeline") {
-		t.Errorf("agent help should be the SKILL.md body, got: %q", out[:min(80, len(out))])
+	if got := stdout.String(); got != fakeAgentHelp {
+		t.Errorf("agent help should be the embedded reference, got: %q", got)
 	}
 }
 

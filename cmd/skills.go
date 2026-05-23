@@ -15,7 +15,6 @@ import (
 const (
 	subcommandSkills = "skills"
 	skillName        = "gh-timeline"
-	skillSubpath     = "skills/gh-timeline/SKILL.md"
 )
 
 // runSkills handles the `gh timeline skills <subcommand>` family by delegating
@@ -40,12 +39,6 @@ func runSkills(ctx context.Context, args []string, stderr io.Writer, newSkills f
 // gh-timeline skill files.
 func newSmith(skillFS fs.FS) (*skillsmith.Smith, error) {
 	return skillsmith.New(skillName, semverFor(version.Get()), skillFS)
-}
-
-// skillContent returns the raw SKILL.md body (frontmatter included). Used by
-// the agent-mode --help output. skillFS must contain skillSubpath.
-func skillContent(skillFS fs.FS) ([]byte, error) {
-	return fs.ReadFile(skillFS, skillSubpath)
 }
 
 // semverFor turns the runtime version string ("v1.2.3 (rev: abc1234)",

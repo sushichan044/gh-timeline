@@ -31,9 +31,10 @@ const (
 
 // Run is the binary entry point. It parses args, dispatches subcommands, and
 // returns the process exit code. skillFS must hold the embedded skill bundle
-// owned by main.
-func Run(ctx context.Context, args []string, stdout, stderr io.Writer, skillFS fs.FS) int {
-	return RunWithDeps(ctx, args, stdout, stderr, defaultDeps(skillFS))
+// owned by main; agentHelp is the detailed reference shown under an AI agent
+// runtime via `--help`.
+func Run(ctx context.Context, args []string, stdout, stderr io.Writer, skillFS fs.FS, agentHelp string) int {
+	return RunWithDeps(ctx, args, stdout, stderr, defaultDeps(skillFS, agentHelp))
 }
 
 // Deps groups host-dependent collaborators so tests can substitute them.
@@ -44,7 +45,8 @@ type Deps struct {
 	Fetch       func(ctx context.Context, client timeline.GraphQLQuerier, repo timeline.Repo, number int) ([]timeline.Event, error)
 	CurrentRepo func() (timeline.Repo, error)
 	NewSkills   func() (SkillsRunner, error)
-	SkillFS     fs.FS // read by writeHelp for agent --help; not required for non-agent runs
+	SkillFS     fs.FS  // needed only by `skills install`; writeHelp ignores it
+	AgentHelp   string // detailed reference printed by writeHelp under an AI agent
 }
 
 // SkillsRunner is the bit of *skillsmith.Smith [Run] actually uses, kept tiny
@@ -53,7 +55,7 @@ type SkillsRunner interface {
 	Run(ctx context.Context, args []string) error
 }
 
-func defaultDeps(skillFS fs.FS) Deps {
+func defaultDeps(skillFS fs.FS, agentHelp string) Deps {
 	return Deps{
 		IsAgent:   agentdetection.IsAgent,
 		NewClient: newGraphQLClient,
@@ -68,7 +70,8 @@ func defaultDeps(skillFS fs.FS) Deps {
 		NewSkills: func() (SkillsRunner, error) {
 			return newSmith(skillFS)
 		},
-		SkillFS: skillFS,
+		SkillFS:   skillFS,
+		AgentHelp: agentHelp,
 	}
 }
 
@@ -107,7 +110,7 @@ func RunWithDeps(ctx context.Context, args []string, stdout, stderr io.Writer, d
 }
 
 func runTimeline(ctx context.Context, args []string, stdout, stderr io.Writer, d Deps) int {
-	opts, err := parseFlags(args, stderr, d.SkillFS)
+	opts, err := parseFlags(args, stderr)
 	if err != nil {
 		if errors.Is(err, pflag.ErrHelp) {
 			return exitOK
@@ -119,7 +122,7 @@ func runTimeline(ctx context.Context, args []string, stdout, stderr io.Writer, d
 	agent := d.IsAgent()
 
 	if opts.help {
-		writeHelp(stdout, agent, d.SkillFS)
+		writeHelp(stdout, agent, d.AgentHelp)
 		return exitOK
 	}
 	if opts.showVersion {
@@ -129,7 +132,7 @@ func runTimeline(ctx context.Context, args []string, stdout, stderr io.Writer, d
 
 	if opts.issueOrPRNumber <= 0 {
 		fmt.Fprintln(stderr, "gh timeline: missing issue or PR number")
-		writeHelp(stderr, false, d.SkillFS)
+		writeHelp(stderr, false, "")
 		return exitUsage
 	}
 
@@ -197,10 +200,10 @@ type flagOpts struct {
 	issueOrPRNumber int
 }
 
-func parseFlags(args []string, stderr io.Writer, skillFS fs.FS) (flagOpts, error) {
+func parseFlags(args []string, stderr io.Writer) (flagOpts, error) {
 	fs := pflag.NewFlagSet("gh timeline", pflag.ContinueOnError)
 	fs.SetOutput(stderr)
-	fs.Usage = func() { writeHelp(stderr, false, skillFS) }
+	fs.Usage = func() { writeHelp(stderr, false, "") }
 
 	var (
 		opts       flagOpts

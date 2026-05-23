@@ -12,5 +12,5 @@ import (
 )
 
 func main() {
-	os.Exit(cmd.Run(context.Background(), os.Args, os.Stdout, os.Stderr, skillFS))
+	os.Exit(cmd.Run(context.Background(), os.Args, os.Stdout, os.Stderr, skillFS, referenceMD))
 }
