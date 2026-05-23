@@ -4,6 +4,7 @@ package timeline
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -32,13 +33,18 @@ func (f *fakeQuerier) Query(_ context.Context, q any, vars map[string]any) error
 	if f.queryErr != nil {
 		return f.queryErr
 	}
+	// Use t.Errorf + returned error rather than t.Fatalf: Query is invoked from
+	// errgroup goroutines for skip>0, and FailNow-class methods are only valid
+	// from the test goroutine.
 	dst, ok := q.(*timelineQuery)
 	if !ok {
-		f.t.Fatalf("Query received %T, want *timelineQuery", q)
+		f.t.Errorf("Query received %T, want *timelineQuery", q)
+		return fmt.Errorf("fakeQuerier: unexpected dst type %T", q)
 	}
 	skip, ok := vars["skip"].(githubv4.Int)
 	if !ok {
-		f.t.Fatalf("Query missing skip variable, got %T", vars["skip"])
+		f.t.Errorf("Query missing skip variable, got %T", vars["skip"])
+		return errors.New("fakeQuerier: missing skip variable")
 	}
 	page, ok := f.pages[int(skip)]
 	if !ok {
@@ -279,14 +285,17 @@ type erroringPagedQuerier struct {
 }
 
 func (f *erroringPagedQuerier) Query(_ context.Context, q any, vars map[string]any) error {
+	// Same goroutine-safety reason as fakeQuerier.Query — see comment there.
 	skip, ok := vars["skip"].(githubv4.Int)
 	if !ok {
-		f.t.Fatalf("Query missing skip variable, got %T", vars["skip"])
+		f.t.Errorf("Query missing skip variable, got %T", vars["skip"])
+		return errors.New("erroringPagedQuerier: missing skip variable")
 	}
 	if int(skip) == 0 {
 		dst, dstOK := q.(*timelineQuery)
 		if !dstOK {
-			f.t.Fatalf("Query received %T, want *timelineQuery", q)
+			f.t.Errorf("Query received %T, want *timelineQuery", q)
+			return fmt.Errorf("erroringPagedQuerier: unexpected dst type %T", q)
 		}
 		*dst = f.first
 		return nil
