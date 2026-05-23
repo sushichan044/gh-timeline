@@ -1,9 +1,6 @@
 # gh-timeline
 
-![```bash gh timeline https://github.com/sushichan044/cc-hooks-ts/issues/20
-2025-11-16T07:32:34Z [AssignedEvent] @sushichan044: assigned sushichan044
-2025-11-16T07:59:08Z [IssueComment] @sushichan044: done by https://github.com/sushichan044/cc-hooks-ts/pull/21
-2025-11-16T07:59:08Z [ClosedEvent] @sushichan044: closed: COMPLETED```](/docs/assets/timeline.png)
+![First 10 events of https://github.com/cli/cli/issues/10147 retrieved with `gh timeline https://github.com/cli/cli/issues/10147`](/docs/assets/timeline.png)
 
 A [`gh`](https://cli.github.com/) extension to view the full timeline of any GitHub issue or PR.
 
@@ -56,20 +53,41 @@ gh timeline --no-json --repo cli/cli 12345
 
 ### Text (default for humans)
 
-```
-$ gh timeline https://github.com/golang/go/issues/50000
-2021-12-06T20:30:19Z [IssueComment] @toothrot: #26479 may also be relevant.
-2021-12-06T20:30:29Z [MilestonedEvent] @toothrot: added to milestone "Backlog"
-2021-12-06T20:30:41Z [LabeledEvent] @toothrot: added label NeedsInvestigation
-2021-12-07T02:23:45Z [IssueComment] @zzkcode: @toothrot Thanks for your reply.
-2021-12-07T02:23:45Z [MentionedEvent] @toothrot
-2021-12-07T02:23:45Z [SubscribedEvent] @toothrot
-2021-12-12T08:17:39Z [IssueComment] @zzkcode: Finally, I figure it out and everything is working as expected, so it's…
-2021-12-12T08:17:39Z [MentionedEvent] @toothrot
-2021-12-12T08:17:39Z [SubscribedEvent] @toothrot
-2021-12-12T08:17:53Z [ClosedEvent] @zzkcode: closed: COMPLETED
-2022-12-12T09:46:12Z [LockedEvent] @golang: locked
-2022-12-12T09:46:13Z [LabeledEvent] @gopherbot: added label FrozenDueToAge
+```bash
+$ gh timeline https://github.com/cli/cli/issues/10147
+2024-12-27T21:11:39Z [LabeledEvent] @cphi-github: added label enhancement
+2024-12-27T21:11:50Z [LabeledEvent] @cliAutomation: added label needs-triage
+2024-12-27T21:11:53Z [RenamedTitleEvent] @cphi-github: renamed: "Add ability to request timeline events to `gh issue view` response" → "Add ability to request timeline events in `gh issue view` response"
+2025-01-02T23:28:45Z [IssueComment] @jtmcg: Hey @cphi-github, thanks for the details on the issue and the problem y…
+2025-01-02T23:28:46Z [MentionedEvent] @cphi-github
+2025-01-02T23:28:46Z [SubscribedEvent] @cphi-github
+2025-01-02T23:28:51Z [AssignedEvent] @jtmcg: assigned jtmcg
+2025-01-02T23:29:06Z [LabeledEvent] @jtmcg: added label more-info-needed
+2025-01-06T13:51:04Z [IssueComment] @EdouardF: Hello @jtmcg,
+2025-01-06T13:51:06Z [MentionedEvent] @jtmcg
+2025-01-06T13:51:06Z [SubscribedEvent] @jtmcg
+2025-01-09T19:38:41Z [IssueComment] @cphi-github: @jtmcg - I will have a poke when I get a chance!
+2025-01-09T19:38:42Z [MentionedEvent] @jtmcg
+2025-01-09T19:38:42Z [SubscribedEvent] @jtmcg
+2025-01-09T23:41:20Z [IssueComment] @jtmcg: > There is already deviation between the plaintext and JSON output, in …
+2025-01-09T23:41:22Z [MentionedEvent] @EdouardF
+2025-01-09T23:41:22Z [SubscribedEvent] @EdouardF
+2025-01-09T23:41:22Z [MentionedEvent] @cphi-github
+2025-01-09T23:41:22Z [SubscribedEvent] @cphi-github
+2025-01-09T23:41:33Z [LabeledEvent] @jtmcg: added label needs-design
+2025-01-09T23:41:33Z [LabeledEvent] @jtmcg: added label discuss
+2025-01-09T23:49:02Z [IssueComment] @cphi-github: I like it. It sounds like it would meet my use case, while being pretty…
+2025-01-13T14:56:25Z [SubscribedEvent] @mgnsk
+2025-01-21T20:38:43Z [UnlabeledEvent] @jtmcg: removed label discuss
+2025-01-21T21:07:46Z [LabeledEvent] @jtmcg: added label needs-product
+2025-01-21T21:07:52Z [UnlabeledEvent] @jtmcg: removed label more-info-needed
+2025-01-21T21:07:52Z [UnlabeledEvent] @jtmcg: removed label needs-triage
+2025-01-21T21:09:54Z [IssueComment] @jtmcg: Hey, @cphi-github, we talked to some of our internal stakeholders to un…
+2025-01-21T21:09:56Z [MentionedEvent] @cphi-github
+2025-01-21T21:09:56Z [SubscribedEvent] @cphi-github
+2025-02-21T18:08:18Z [UnassignedEvent] @jtmcg: unassigned jtmcg
+2026-03-13T14:36:34Z [SubscribedEvent] @Vlaaaaaaad
+
 ```
 
 ### JSON (default for AI agents, or with `--json`)
