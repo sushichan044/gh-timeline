@@ -1,27 +1,12 @@
-// Package timeline fetches and renders GitHub PR timeline events.
+// Package timeline fetches and renders GitHub Issue / PR timeline events via
+// the GraphQL API.
 package timeline
 
 import "time"
 
-// Type constants for the timeline events surfaced explicitly by this tool.
-// Other event types from the GitHub API are still rendered with their raw
-// `event` string — these constants only cover the cases with custom logic.
-const (
-	TypeCommitted      = "committed"
-	TypeReviewed       = "reviewed"
-	TypeCommented      = "commented"
-	TypeLabeled        = "labeled"
-	TypeUnlabeled      = "unlabeled"
-	TypeAssigned       = "assigned"
-	TypeUnassigned     = "unassigned"
-	TypeReviewReq      = "review_requested"
-	TypeHeadForcePush  = "head_ref_force_pushed"
-	TypeReadyForReview = "ready_for_review"
-	TypeMerged         = "merged"
-)
-
 // Event is a normalized timeline entry suitable for both human-readable and
-// machine-readable output.
+// machine-readable output. Type is the GraphQL __typename of the source node
+// (PascalCase, e.g. "PullRequestCommit", "LabeledEvent").
 type Event struct {
 	Type      string    `json:"type"`
 	Actor     string    `json:"actor,omitempty"`

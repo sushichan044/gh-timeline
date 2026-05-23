@@ -1,7 +1,6 @@
 package timeline
 
 import (
-	"fmt"
 	"strings"
 	"unicode/utf8"
 )
@@ -10,42 +9,6 @@ import (
 // summary text. Chosen per spec — 72 matches the conventional commit subject
 // limit and keeps a single timeline line readable in an 80-column terminal.
 const truncateLength = 72
-
-func (r rawEvent) summary() string {
-	switch r.Event {
-	case TypeCommitted:
-		return truncate(firstLine(r.Message))
-	case TypeReviewed:
-		return r.State
-	case TypeCommented:
-		return truncate(firstLine(r.Body))
-	case TypeHeadForcePush:
-		return "force-pushed"
-	case TypeReadyForReview:
-		return "marked ready for review"
-	case TypeLabeled, TypeUnlabeled:
-		if r.Label != nil {
-			return r.Label.Name
-		}
-	case TypeAssigned, TypeUnassigned:
-		if r.Assignee != nil {
-			return r.Assignee.Login
-		}
-	case TypeReviewReq:
-		if r.RequestedReviewer != nil && r.RequestedReviewer.Login != "" {
-			return r.RequestedReviewer.Login
-		}
-		if r.RequestedTeam != nil {
-			return r.RequestedTeam.Slug
-		}
-	case TypeMerged:
-		if r.Actor != nil && r.Actor.Login != "" {
-			return fmt.Sprintf("merged by %s", r.Actor.Login)
-		}
-		return TypeMerged
-	}
-	return ""
-}
 
 // firstLine returns the substring up to (but not including) the first '\n' or
 // '\r'. Trailing whitespace on that line is also stripped because commit

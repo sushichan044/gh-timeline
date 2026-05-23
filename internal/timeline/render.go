@@ -7,24 +7,24 @@ import (
 )
 
 // RenderText writes events as one line per event for human consumption.
-// Format: `2026-01-02T10:00:00Z [labeled] @alice: bug`.
+//
+// When Summary is non-empty the line is `{ts} [{type}] @{actor}: {summary}`.
+// When Summary is empty — the fallback path for unknown / known-but-noisy
+// events — the trailing `: -` is dropped and the line ends after the actor.
 func RenderText(w io.Writer, events []Event) error {
 	for _, e := range events {
 		actor := e.Actor
 		if actor == "" {
 			actor = "-"
 		}
-		summary := e.Summary
-		if summary == "" {
-			summary = "-"
+		ts := e.Timestamp.UTC().Format("2006-01-02T15:04:05Z")
+		if e.Summary == "" {
+			if _, err := fmt.Fprintf(w, "%s [%s] @%s\n", ts, e.Type, actor); err != nil {
+				return err
+			}
+			continue
 		}
-		_, err := fmt.Fprintf(w, "%s [%s] @%s: %s\n",
-			e.Timestamp.UTC().Format("2006-01-02T15:04:05Z"),
-			e.Type,
-			actor,
-			summary,
-		)
-		if err != nil {
+		if _, err := fmt.Fprintf(w, "%s [%s] @%s: %s\n", ts, e.Type, actor, e.Summary); err != nil {
 			return err
 		}
 	}

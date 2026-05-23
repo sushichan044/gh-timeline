@@ -1,6 +1,6 @@
 ---
 name: gh-timeline
-description: Render a GitHub Pull Request's full event timeline in chronological order from the terminal, as JSON for AI agents.
+description: Render a GitHub Issue or Pull Request's full event timeline in chronological order from the terminal, as JSON for AI agents.
 license: MIT
 compatibility:
   - claude
@@ -12,16 +12,20 @@ allowed_tools:
 
 # gh-timeline
 
-A GitHub CLI extension that prints a Pull Request's complete event timeline —
-commits, reviews, comments, force pushes, labels, assignments, merges — in
-chronological order, in a single call.
+A GitHub CLI extension that prints an Issue or Pull Request's complete event
+timeline — commits, reviews, comments, force pushes, labels, assignments,
+merges, and many more — in chronological order, in a single call.
 
-When you (the AI agent) need the full history of a PR, prefer `gh timeline`
-over combining `gh pr view`, `gh pr review list`, and `gh api .../timeline`.
+The data source is GitHub's GraphQL API (`issueOrPullRequest.timelineItems`),
+so both issues and PRs work with the same `<number>` argument.
+
+When you (the AI agent) need the full history of an Issue or PR, prefer
+`gh timeline` over combining `gh pr view`, `gh pr review list`,
+`gh issue view`, and `gh api .../timeline`.
 
 ## When to use
 
-- Investigating a PR's discussion history end-to-end
+- Investigating an Issue or PR's discussion history end-to-end
 - Finding when a force-push happened and what was reviewed afterwards
 - Auditing who approved / commented / requested changes and in what order
 - Producing a chronological summary for a stand-up or status report
@@ -29,7 +33,7 @@ over combining `gh pr view`, `gh pr review list`, and `gh api .../timeline`.
 ## Recommended invocation
 
 ```sh
-gh timeline --json --repo OWNER/REPO <PR_NUMBER>
+gh timeline --json --repo OWNER/REPO <NUMBER>
 ```
 
 When the extension detects an AI agent runtime (Claude Code, Cursor, Codex,
@@ -44,31 +48,60 @@ The command emits a JSON array. Each element has this shape:
 
 ```json
 {
-  "type": "reviewed",
+  "type": "PullRequestReview",
   "actor": "octocat",
   "timestamp": "2026-01-02T10:00:00Z",
-  "summary": "approved",
+  "summary": "APPROVED",
   "ref": {
     "node_id": "PRR_kwDOA...",
-    "sha": "",
     "review_id": 1234567,
-    "comment_id": 0,
-    "url": "https://api.github.com/repos/OWNER/REPO/pulls/123/reviews/1234567"
+    "url": "https://github.com/OWNER/REPO/pull/123#pullrequestreview-1234567"
   }
 }
 ```
 
 Field meanings:
 
-- `type` — one of `committed`, `reviewed`, `commented`, `labeled`, `unlabeled`,
-  `assigned`, `unassigned`, `review_requested`, `head_ref_force_pushed`,
-  `ready_for_review`, `merged`, or any other event the GitHub API may emit.
+- `type` — the GraphQL `__typename` of the event, PascalCase. Examples:
+  `PullRequestCommit`, `PullRequestReview`, `IssueComment`, `LabeledEvent`,
+  `UnlabeledEvent`, `AssignedEvent`, `UnassignedEvent`, `ReviewRequestedEvent`,
+  `HeadRefForcePushedEvent`, `BaseRefForcePushedEvent`, `ReadyForReviewEvent`,
+  `ConvertToDraftEvent`, `MergedEvent`, `ClosedEvent`, `ReopenedEvent`,
+  `RenamedTitleEvent`, `CrossReferencedEvent`, `ReviewDismissedEvent`,
+  `MilestonedEvent`, `LockedEvent`, `PinnedEvent`, `ConnectedEvent`,
+  `TransferredEvent`, `MarkedAsDuplicateEvent`, etc. Any other GraphQL
+  `__typename` in the
+  [`PullRequestTimelineItems`](https://docs.github.com/en/graphql/reference/unions#pullrequesttimelineitems)
+  or [`IssueTimelineItems`](https://docs.github.com/en/graphql/reference/unions#issuetimelineitems)
+  union may also appear; events the extension does not yet have a typed handler
+  for fall through with the raw `type` and an empty `summary`.
 - `actor` — login of the user who triggered the event (commit author for
-  `committed`).
-- `timestamp` — RFC 3339 UTC.
-- `summary` — short human-readable description, **truncated to 72 characters**.
-  For `committed` and `commented` this is the first line only.
-- `ref` — identifiers you can pass back to `gh api` to fetch the full payload.
+  `PullRequestCommit`).
+- `timestamp` — RFC 3339 UTC. Commits use `committedDate`; reviews use
+  `submittedAt`; everything else uses `createdAt`.
+- `summary` — short human-readable description, **truncated to 72
+  characters**. For `PullRequestCommit` and `IssueComment` this is the first
+  line only. Empty for events that have no meaningful one-line summary
+  (e.g. `SubscribedEvent`) or are entirely unknown to the dispatcher.
+- `ref` — identifiers you can pass back to `gh api` to fetch the full
+  payload. Populated fields vary by event: commits expose `sha`, reviews
+  expose `review_id`, comments expose `comment_id`, and most events expose
+  `node_id` and `url`.
+
+## Text output
+
+The default for humans:
+
+```
+2026-01-02T10:00:00Z [LabeledEvent] @alice: bug
+2026-01-02T10:05:00Z [PullRequestReview] @bob: APPROVED
+2026-01-02T10:30:00Z [MergedEvent] @carol: merged by carol
+2026-01-02T10:31:00Z [SubscribedEvent] @dave
+```
+
+When `summary` is empty (known-but-noisy events, or future event types the
+dispatcher has not seen yet), the trailing `: <summary>` segment is dropped
+and the line ends after the actor.
 
 ## Drilling into truncated content
 
@@ -80,15 +113,15 @@ full content when needed:
 gh api repos/OWNER/REPO/commits/<ref.sha>
 
 # full review body and inline comments
-gh api repos/OWNER/REPO/pulls/<PR_NUMBER>/reviews/<ref.review_id>
-gh api repos/OWNER/REPO/pulls/<PR_NUMBER>/reviews/<ref.review_id>/comments
+gh api repos/OWNER/REPO/pulls/<NUMBER>/reviews/<ref.review_id>
+gh api repos/OWNER/REPO/pulls/<NUMBER>/reviews/<ref.review_id>/comments
 
 # full issue comment body
 gh api repos/OWNER/REPO/issues/comments/<ref.comment_id>
 ```
 
-`ref.url` carries the canonical REST URL for events that have one — passing
-it to `gh api` directly also works.
+`ref.url` carries a canonical URL for events that have one — passing it to
+`gh browse` (or visiting it directly) also works.
 
 ## Examples
 
@@ -98,18 +131,21 @@ gh timeline --json --repo cli/cli 1234 | jq '.[] | {type, actor, timestamp}'
 
 # Just the reviews, newest first
 gh timeline --json --repo cli/cli 1234 \
-  | jq '[.[] | select(.type=="reviewed")] | reverse'
+  | jq '[.[] | select(.type == "PullRequestReview")] | reverse'
 
 # Find force pushes
 gh timeline --json --repo cli/cli 1234 \
-  | jq '.[] | select(.type=="head_ref_force_pushed")'
+  | jq '.[] | select(.type == "HeadRefForcePushedEvent")'
+
+# All unique event types in this PR's history
+gh timeline --json --repo cli/cli 1234 | jq '[.[].type] | unique | sort'
 ```
 
 ## Limitations
 
 - Truncation is fixed at 72 characters per event. There is no configuration
   knob — use the `ref` fields to get the full content.
-- The command paginates the GitHub API at 100 events per request; very large
-  PRs may take a few seconds.
-- A missing PR returns a non-zero exit code with a message containing
-  `not found` on stderr.
+- The command paginates the GraphQL API at 100 events per request; very
+  large Issues / PRs may take a few seconds.
+- A missing Issue / PR returns a non-zero exit code with a message
+  containing `not found` on stderr.

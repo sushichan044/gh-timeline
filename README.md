@@ -1,8 +1,13 @@
 # gh-timeline
 
-A [`gh`](https://cli.github.com/) extension that prints a Pull Request's full
-event timeline — commits, reviews, comments, force pushes, labels,
-assignments, merges — in a single chronological view.
+A [`gh`](https://cli.github.com/) extension that prints an Issue or Pull
+Request's full event timeline — commits, reviews, comments, force pushes,
+labels, assignments, merges, and every other timeline item GitHub exposes —
+in a single chronological view.
+
+Data is fetched via GitHub's GraphQL API
+(`issueOrPullRequest.timelineItems`), so the same `<number>` argument works
+for both issues and PRs.
 
 Designed to be readable in the terminal **and** trivially parseable by AI
 agents. When invoked under an AI agent runtime (Claude Code, Cursor, Codex,
@@ -22,6 +27,8 @@ gh extension install .
 ```
 
 ## Usage
+
+`<number>` can be an Issue or a PR number — both work.
 
 ```sh
 # Inside a clone of the repo
@@ -52,29 +59,36 @@ gh timeline --no-json --repo cli/cli 1234
 ### Text (default for humans)
 
 ```
-2026-01-02T10:00:00Z [labeled] @alice: bug
-2026-01-02T10:05:00Z [reviewed] @bob: approved
-2026-01-02T10:30:00Z [merged] @carol: merged by carol
+2026-01-02T10:00:00Z [LabeledEvent] @alice: bug
+2026-01-02T10:05:00Z [PullRequestReview] @bob: APPROVED
+2026-01-02T10:30:00Z [MergedEvent] @carol: merged by carol
+2026-01-02T10:31:00Z [SubscribedEvent] @dave
 ```
+
+When an event has no meaningful one-line summary (e.g. `SubscribedEvent`, or
+a brand-new `__typename` the extension does not have a typed handler for),
+the trailing `: <summary>` segment is dropped and the line ends after the
+actor.
 
 ### JSON (default for AI agents, or with `--json`)
 
 ```json
 [
   {
-    "type": "reviewed",
+    "type": "PullRequestReview",
     "actor": "bob",
     "timestamp": "2026-01-02T10:00:00Z",
-    "summary": "approved",
+    "summary": "APPROVED",
     "ref": {
       "node_id": "PRR_kwDO…",
       "review_id": 1234567,
-      "url": "https://api.github.com/repos/OWNER/REPO/pulls/123/reviews/1234567"
+      "url": "https://github.com/OWNER/REPO/pull/123#pullrequestreview-1234567"
     }
   }
 ]
 ```
 
+The `type` value is the GraphQL `__typename` of the event (PascalCase).
 Summaries are truncated to 72 characters. Use the `ref.sha`,
 `ref.review_id`, `ref.comment_id`, or `ref.url` fields with `gh api` to fetch
 full content when needed.

@@ -13,14 +13,14 @@ import (
 func sampleEvents() []timeline.Event {
 	return []timeline.Event{
 		{
-			Type:      "reviewed",
+			Type:      "PullRequestReview",
 			Actor:     "bob",
 			Timestamp: time.Date(2026, 1, 1, 9, 0, 0, 0, time.UTC),
-			Summary:   "approved",
+			Summary:   "APPROVED",
 			Ref:       timeline.Ref{ReviewID: 42, URL: "https://api.github.com/.../reviews/42"},
 		},
 		{
-			Type:      "labeled",
+			Type:      "LabeledEvent",
 			Actor:     "alice",
 			Timestamp: time.Date(2026, 1, 2, 10, 30, 0, 0, time.UTC),
 			Summary:   "bug",
@@ -38,25 +38,33 @@ func TestRenderText_oneLinePerEvent(t *testing.T) {
 	if len(lines) != 2 {
 		t.Fatalf("got %d lines, want 2: %q", len(lines), buf.String())
 	}
-	if lines[0] != "2026-01-01T09:00:00Z [reviewed] @bob: approved" {
+	if lines[0] != "2026-01-01T09:00:00Z [PullRequestReview] @bob: APPROVED" {
 		t.Errorf("line 1 = %q", lines[0])
 	}
-	if lines[1] != "2026-01-02T10:30:00Z [labeled] @alice: bug" {
+	if lines[1] != "2026-01-02T10:30:00Z [LabeledEvent] @alice: bug" {
 		t.Errorf("line 2 = %q", lines[1])
 	}
 }
 
-func TestRenderText_emptyActorAndSummaryUseDash(t *testing.T) {
+// TestRenderText_emptySummaryOmitsColon documents the fallback rendering used
+// for events without a meaningful summary (e.g. SubscribedEvent or any
+// unknown __typename): the trailing `: -` is dropped to keep the line tight
+// and signal "no summary available" without a noisy placeholder.
+func TestRenderText_emptySummaryOmitsColon(t *testing.T) {
 	t.Parallel()
 	var buf bytes.Buffer
 	events := []timeline.Event{
-		{Type: "subscribed", Timestamp: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)},
+		{Type: "SubscribedEvent", Actor: "alice", Timestamp: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)},
+		{Type: "BrandNewEventType", Timestamp: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)},
 	}
 	if err := timeline.RenderText(&buf, events); err != nil {
 		t.Fatalf("RenderText: %v", err)
 	}
-	if got := strings.TrimRight(buf.String(), "\n"); got != "2026-01-01T00:00:00Z [subscribed] @-: -" {
-		t.Errorf("got %q", got)
+	got := strings.TrimRight(buf.String(), "\n")
+	want := "2026-01-01T00:00:00Z [SubscribedEvent] @alice\n" +
+		"2026-01-01T00:00:00Z [BrandNewEventType] @-"
+	if got != want {
+		t.Errorf("got:\n%s\nwant:\n%s", got, want)
 	}
 }
 

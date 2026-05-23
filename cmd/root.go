@@ -10,10 +10,12 @@ import (
 	"io/fs"
 	"strconv"
 
-	"github.com/cli/go-gh/v2/pkg/api"
+	"github.com/cli/go-gh/v2/pkg/auth"
 	"github.com/cli/go-gh/v2/pkg/repository"
 	"github.com/jehiah/agentdetection"
+	"github.com/shurcooL/githubv4"
 	"github.com/spf13/pflag"
+	"golang.org/x/oauth2"
 
 	"github.com/sushichan044/gh-timeline/internal/timeline"
 	"github.com/sushichan044/gh-timeline/internal/version"
@@ -37,7 +39,8 @@ func Run(ctx context.Context, args []string, stdout, stderr io.Writer, skillFS f
 // Production code uses [Run] which fills these from real implementations.
 type Deps struct {
 	IsAgent     func() bool
-	NewClient   func() (timeline.RESTClient, error)
+	NewClient   func(ctx context.Context) (timeline.GraphQLQuerier, error)
+	Fetch       func(ctx context.Context, client timeline.GraphQLQuerier, repo timeline.Repo, number int) ([]timeline.Event, error)
 	CurrentRepo func() (timeline.Repo, error)
 	NewSkills   func() (SkillsRunner, error)
 	SkillFS     fs.FS // read by writeHelp for agent --help; not required for non-agent runs
@@ -51,10 +54,9 @@ type SkillsRunner interface {
 
 func defaultDeps(skillFS fs.FS) Deps {
 	return Deps{
-		IsAgent: agentdetection.IsAgent,
-		NewClient: func() (timeline.RESTClient, error) {
-			return api.DefaultRESTClient()
-		},
+		IsAgent:   agentdetection.IsAgent,
+		NewClient: newGraphQLClient,
+		Fetch:     timeline.Fetch,
 		CurrentRepo: func() (timeline.Repo, error) {
 			r, err := repository.Current()
 			if err != nil {
@@ -69,6 +71,25 @@ func defaultDeps(skillFS fs.FS) Deps {
 	}
 }
 
+// newGraphQLClient resolves the gh auth token for the active host and wraps
+// it in an oauth2-backed HTTP client that *githubv4.Client wants. The host
+// comes from gh's auth resolution, mirroring how go-gh's REST client picks up
+// GHE configuration.
+func newGraphQLClient(ctx context.Context) (timeline.GraphQLQuerier, error) {
+	host, _ := auth.DefaultHost()
+	token, _ := auth.TokenForHost(host)
+	if token == "" {
+		return nil, fmt.Errorf("not authenticated for host %q — run `gh auth login`", host)
+	}
+	src := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: token})
+	httpClient := oauth2.NewClient(ctx, src)
+	if host == "" || host == "github.com" {
+		return githubv4.NewClient(httpClient), nil
+	}
+	endpoint := fmt.Sprintf("https://%s/api/graphql", host)
+	return githubv4.NewEnterpriseClient(endpoint, httpClient), nil
+}
+
 // RunWithDeps is the test-friendly entry point — production code uses [Run]
 // which calls this with real implementations.
 func RunWithDeps(ctx context.Context, args []string, stdout, stderr io.Writer, d Deps) int {
@@ -81,10 +102,10 @@ func RunWithDeps(ctx context.Context, args []string, stdout, stderr io.Writer, d
 		return runSkills(ctx, rest[1:], stderr, d.NewSkills)
 	}
 
-	return runTimeline(rest, stdout, stderr, d)
+	return runTimeline(ctx, rest, stdout, stderr, d)
 }
 
-func runTimeline(args []string, stdout, stderr io.Writer, d Deps) int {
+func runTimeline(ctx context.Context, args []string, stdout, stderr io.Writer, d Deps) int {
 	opts, err := parseFlags(args, stderr, d.SkillFS)
 	if err != nil {
 		if errors.Is(err, pflag.ErrHelp) {
@@ -117,13 +138,13 @@ func runTimeline(args []string, stdout, stderr io.Writer, d Deps) int {
 		return exitError
 	}
 
-	client, err := d.NewClient()
+	client, err := d.NewClient(ctx)
 	if err != nil {
 		fmt.Fprintf(stderr, "gh timeline: %v\n", err)
 		return exitError
 	}
 
-	events, err := timeline.Fetch(client, repo, opts.prNumber)
+	events, err := d.Fetch(ctx, client, repo, opts.prNumber)
 	if err != nil {
 		fmt.Fprintf(stderr, "gh timeline: %v\n", err)
 		return exitError

@@ -1,94 +1,102 @@
 package timeline
 
 import (
-	"encoding/json"
+	"context"
 	"errors"
 	"fmt"
-	"io"
-	"net/http"
-	"regexp"
+	"math"
 	"sort"
 
-	"github.com/cli/go-gh/v2/pkg/api"
+	"github.com/shurcooL/githubv4"
 )
 
-// Repo is the minimal repo coordinate Fetch needs.
-type Repo struct {
-	Owner string
-	Name  string
+// GraphQLQuerier is the subset of *githubv4.Client that Fetch consumes. Tests
+// pass a fake; production code wires in the real client built in cmd.
+type GraphQLQuerier interface {
+	Query(ctx context.Context, q any, variables map[string]any) error
 }
 
-// RESTClient is the subset of go-gh's REST client that Fetch uses. *api.RESTClient
-// satisfies it; tests pass a fake.
-type RESTClient interface {
-	Request(method, path string, body io.Reader) (*http.Response, error)
-}
-
-// perPage is the upper bound the GitHub REST API allows. Using the maximum
-// minimizes round trips for PRs with large timelines without changing the
-// public contract.
-const perPage = 100
-
-// Fetch loads every timeline event for the given PR and returns them sorted
-// chronologically (stable on equal timestamps, preserving server order).
-func Fetch(client RESTClient, repo Repo, number int) ([]Event, error) {
+// Fetch loads every timeline event for the given Issue or PR and returns them
+// sorted chronologically (stable on equal timestamps, preserving server
+// order). It paginates internally; callers see one consolidated slice.
+//
+// The number argument is the Issue or PR number — GitHub uses a single
+// numbering space per repository, so `issueOrPullRequest(number:)` resolves
+// either form. Errors surface as wrapped errors; a non-existent
+// issue/PR is reported as a "not found" error.
+//
+//nolint:gocognit // The cursor loop interleaves first-page guard, typename dispatch, and pagination — splitting hides the data flow.
+func Fetch(ctx context.Context, client GraphQLQuerier, repo Repo, number int) ([]Event, error) {
 	if repo.Owner == "" || repo.Name == "" {
 		return nil, errors.New("repository owner and name are required")
 	}
-	if number <= 0 {
-		return nil, fmt.Errorf("invalid PR number %d", number)
+	if number <= 0 || number > math.MaxInt32 {
+		return nil, fmt.Errorf("invalid issue/PR number %d", number)
 	}
 
-	path := fmt.Sprintf("repos/%s/%s/issues/%d/timeline?per_page=%d",
-		repo.Owner, repo.Name, number, perPage)
-	var all []Event
+	var (
+		all       []Event
+		cursor    *githubv4.String
+		firstPage = true
+	)
 	for {
-		resp, err := client.Request(http.MethodGet, path, nil)
-		if err != nil {
-			var httpErr *api.HTTPError
-			if errors.As(err, &httpErr) && httpErr.StatusCode == http.StatusNotFound {
-				return nil, fmt.Errorf("PR %s/%s#%d not found", repo.Owner, repo.Name, number)
+		var q timelineQuery
+		vars := map[string]any{
+			"owner": githubv4.String(repo.Owner),
+			"name":  githubv4.String(repo.Name),
+			// Bounded above by MaxInt32 in the input validation; safe to narrow.
+			"number": githubv4.Int(int32(number)),
+			"cursor": cursor,
+		}
+		if err := client.Query(ctx, &q, vars); err != nil {
+			return nil, fmt.Errorf("timeline query failed: %w", err)
+		}
+
+		typename := string(q.Repository.IssueOrPullRequest.Typename)
+		if firstPage {
+			if typename == "" {
+				return nil, fmt.Errorf("%s/%s#%d not found", repo.Owner, repo.Name, number)
 			}
-			return nil, fmt.Errorf("timeline request failed: %w", err)
+			firstPage = false
 		}
-		page, err := decodePage(resp.Body)
-		_ = resp.Body.Close()
-		if err != nil {
-			return nil, err
+
+		// shurcooL/githubv4 populates both inline-fragment branches from the same
+		// JSON object since `timelineItems` shares the key on the wire — pick
+		// whichever branch matches the actual __typename to avoid emitting each
+		// node twice with one set of zero values.
+		var (
+			page    pageInfo
+			handled bool
+		)
+		switch typename {
+		case "PullRequest":
+			prPage := q.Repository.IssueOrPullRequest.PullRequest.TimelineItems
+			for _, n := range prPage.Nodes {
+				all = append(all, dispatchPRNode(n))
+			}
+			page = prPage.PageInfo
+			handled = true
+		case "Issue":
+			issuePage := q.Repository.IssueOrPullRequest.Issue.TimelineItems
+			for _, n := range issuePage.Nodes {
+				all = append(all, dispatchIssueNode(n))
+			}
+			page = issuePage.PageInfo
+			handled = true
 		}
-		for _, e := range page {
-			all = append(all, e.normalize())
+		if !handled {
+			return nil, fmt.Errorf("unexpected issueOrPullRequest typename %q", typename)
 		}
-		next, ok := nextPage(resp.Header.Get("Link"))
-		if !ok {
+
+		if !bool(page.HasNextPage) {
 			break
 		}
-		path = next
+		nextCursor := page.EndCursor
+		cursor = &nextCursor
 	}
 
 	sort.SliceStable(all, func(i, j int) bool {
 		return all[i].Timestamp.Before(all[j].Timestamp)
 	})
 	return all, nil
-}
-
-func decodePage(body io.Reader) ([]rawEvent, error) {
-	var page []rawEvent
-	if err := json.NewDecoder(body).Decode(&page); err != nil {
-		return nil, fmt.Errorf("decode timeline page: %w", err)
-	}
-	return page, nil
-}
-
-// linkRE matches one entry in an RFC 5988 Link header — used to find the
-// `rel="next"` URL the GitHub API emits for paginated endpoints.
-var linkRE = regexp.MustCompile(`<([^>]+)>;\s*rel="([^"]+)"`)
-
-func nextPage(linkHeader string) (string, bool) {
-	for _, m := range linkRE.FindAllStringSubmatch(linkHeader, -1) {
-		if len(m) >= 3 && m[2] == "next" {
-			return m[1], true
-		}
-	}
-	return "", false
 }
