@@ -63,8 +63,8 @@ query { issue: __type(name: "IssueTimelineItems") { possibleTypes { name } } }
 ' --jq '.data.issue.possibleTypes[].name'  | sort -u > /tmp/issue_upstream.txt
 
 # 1.2 本 repo 側の宣言 (graphql tag を抽出)
-grep -hE '`graphql:"\.\.\. on [A-Za-z]+"`' internal/timeline/query.go \
-  | grep -oE 'on [A-Za-z]+' | sed 's/^on //' | sort -u > /tmp/repo_declared.txt
+grep -hE '`graphql:"\.\.\. on [A-Za-z0-9]+"`' internal/timeline/query.go \
+  | grep -oE 'on [A-Za-z0-9]+' | sed 's/^on //' | sort -u > /tmp/repo_declared.txt
 
 # 1.3 PR union の差分 — 本 repo は両 union 分を 1 ファイルに宣言しているので
 #     pr_upstream に対してのみ厳密チェック (issue union は subset)
