@@ -34,13 +34,20 @@ When you (the AI agent) need the full history of an Issue or PR, prefer
 
 ```sh
 gh timeline --json --repo OWNER/REPO <NUMBER>
+
+# Or, if you already have the URL of the Issue / PR, paste it directly —
+# the repo is inferred from the URL and --repo must NOT be set.
+gh timeline --json https://github.com/OWNER/REPO/pull/<NUMBER>
+gh timeline --json https://github.com/OWNER/REPO/issues/<NUMBER>
 ```
 
 When the extension detects an AI agent runtime (Claude Code, Cursor, Codex,
 etc.) it switches to JSON output by default, so `--json` is implicit. Pass
 `--no-json` to force the human-readable text format.
 
-If you are inside a clone of the repository, `--repo` can be omitted.
+If you are inside a clone of the repository, `--repo` can be omitted. GitHub
+Enterprise Server URLs (`https://<ghe-host>/OWNER/REPO/pull/<NUMBER>`) are
+accepted the same way.
 
 ## Output schema (JSON)
 
@@ -128,6 +135,10 @@ gh api repos/OWNER/REPO/issues/comments/<ref.comment_id>
 ```sh
 # Quick overview as JSON
 gh timeline --json --repo cli/cli 1234 | jq '.[] | {type, actor, timestamp}'
+
+# Same thing, but starting from a URL the user shared
+gh timeline --json https://github.com/cli/cli/pull/1234 \
+  | jq '.[] | {type, actor, timestamp}'
 
 # Just the reviews, newest first
 gh timeline --json --repo cli/cli 1234 \

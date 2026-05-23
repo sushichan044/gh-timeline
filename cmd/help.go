@@ -9,8 +9,13 @@ import (
 const humanHelp = `gh timeline — render a Pull Request's full event timeline.
 
 Usage:
-  gh timeline [flags] <pr-number>
+  gh timeline [flags] <number-or-url>
   gh timeline skills <subcommand> [flags]
+
+The positional argument can be either a bare Issue/PR number (uses --repo or
+the current repository) or a full GitHub URL like
+https://github.com/OWNER/REPO/pull/123. GitHub Enterprise Server URLs work too.
+--repo cannot be combined with a URL.
 
 Flags:
   -R, --repo OWNER/REPO   Repository (defaults to the current git repository)
@@ -22,6 +27,8 @@ Flags:
 Examples:
   gh timeline 1234
   gh timeline --repo cli/cli 1234
+  gh timeline https://github.com/cli/cli/pull/1234
+  gh timeline https://github.com/cli/cli/issues/5678
   gh timeline --json --repo cli/cli 1234 | jq '.[].type'
   gh timeline skills install            # install the embedded AI agent skill
 

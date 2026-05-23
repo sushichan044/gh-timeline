@@ -190,7 +190,109 @@ func TestRun_skillsErrorBubblesUp(t *testing.T) {
 	}
 }
 
-func TestRun_missingPRNumberExits2(t *testing.T) {
+// fetchCapture records the (repo, number) the CLI passed to Fetch so URL
+// parsing can be asserted without depending on the full Fetch contract.
+type fetchCapture struct {
+	repo   timeline.Repo
+	number int
+}
+
+// newCapturingDeps mirrors newTestDeps but replaces Fetch with a spy that
+// stashes its arguments into capture before returning events.
+func newCapturingDeps(events []timeline.Event, agent bool, capture *fetchCapture) cmd.Deps {
+	deps := newTestDeps(events, nil, agent, &fakeSkills{})
+	deps.Fetch = func(_ context.Context, _ timeline.GraphQLQuerier, repo timeline.Repo, number int) ([]timeline.Event, error) {
+		capture.repo = repo
+		capture.number = number
+		return events, nil
+	}
+	return deps
+}
+
+func TestRun_issueURLSetsRepoAndNumber(t *testing.T) {
+	t.Parallel()
+	var capture fetchCapture
+	var stdout, stderr bytes.Buffer
+	code := cmd.RunWithDeps(context.Background(),
+		[]string{"gh-timeline", "https://github.com/octo/demo/issues/42"},
+		&stdout, &stderr,
+		newCapturingDeps([]timeline.Event{reviewedEvent()}, false, &capture),
+	)
+	if code != 0 {
+		t.Fatalf("exit code = %d, stderr = %q", code, stderr.String())
+	}
+	if capture.repo.Owner != "octo" || capture.repo.Name != "demo" || capture.number != 42 {
+		t.Errorf("Fetch got repo=%+v number=%d, want {octo demo} 42", capture.repo, capture.number)
+	}
+}
+
+func TestRun_pullURLSetsRepoAndNumber(t *testing.T) {
+	t.Parallel()
+	var capture fetchCapture
+	var stdout, stderr bytes.Buffer
+	code := cmd.RunWithDeps(context.Background(),
+		[]string{"gh-timeline", "https://github.com/octo/demo/pull/456"},
+		&stdout, &stderr,
+		newCapturingDeps([]timeline.Event{reviewedEvent()}, false, &capture),
+	)
+	if code != 0 {
+		t.Fatalf("exit code = %d, stderr = %q", code, stderr.String())
+	}
+	if capture.repo.Owner != "octo" || capture.repo.Name != "demo" || capture.number != 456 {
+		t.Errorf("Fetch got repo=%+v number=%d, want {octo demo} 456", capture.repo, capture.number)
+	}
+}
+
+func TestRun_gheURLIsAccepted(t *testing.T) {
+	t.Parallel()
+	var capture fetchCapture
+	var stdout, stderr bytes.Buffer
+	code := cmd.RunWithDeps(context.Background(),
+		[]string{"gh-timeline", "https://ghe.example.com/o/r/pull/7"},
+		&stdout, &stderr,
+		newCapturingDeps([]timeline.Event{reviewedEvent()}, false, &capture),
+	)
+	if code != 0 {
+		t.Fatalf("exit code = %d, stderr = %q", code, stderr.String())
+	}
+	if capture.repo.Owner != "o" || capture.repo.Name != "r" || capture.number != 7 {
+		t.Errorf("Fetch got repo=%+v number=%d, want {o r} 7", capture.repo, capture.number)
+	}
+}
+
+func TestRun_urlAndRepoFlagAreMutuallyExclusiveExits2(t *testing.T) {
+	t.Parallel()
+	var stdout, stderr bytes.Buffer
+	code := cmd.RunWithDeps(context.Background(),
+		[]string{"gh-timeline", "--repo", "cli/cli", "https://github.com/octo/demo/pull/1"},
+		&stdout, &stderr,
+		newTestDeps(nil, nil, false, &fakeSkills{}),
+	)
+	if code != 2 {
+		t.Fatalf("exit code = %d, want 2 (stderr = %q)", code, stderr.String())
+	}
+	if !strings.Contains(stderr.String(), "--repo cannot be combined with a GitHub URL") {
+		t.Errorf("stderr should mention the conflict, got %q", stderr.String())
+	}
+}
+
+func TestRun_invalidURLExits2(t *testing.T) {
+	t.Parallel()
+	var stdout, stderr bytes.Buffer
+	code := cmd.RunWithDeps(context.Background(),
+		[]string{"gh-timeline", "https://github.com/o/r/wiki/Home"},
+		&stdout, &stderr,
+		newTestDeps(nil, nil, false, &fakeSkills{}),
+	)
+	if code != 2 {
+		t.Fatalf("exit code = %d, want 2 (stderr = %q)", code, stderr.String())
+	}
+	if !strings.Contains(stderr.String(), "invalid issue or PR number or GitHub URL") {
+		t.Errorf("stderr should mention invalid argument, got %q", stderr.String())
+	}
+}
+
+func TestRun_missingIssueOrPRNumberExits2(t *testing.T) {
 	t.Parallel()
 	var stdout, stderr bytes.Buffer
 	code := cmd.RunWithDeps(context.Background(),
@@ -201,8 +303,8 @@ func TestRun_missingPRNumberExits2(t *testing.T) {
 	if code != 2 {
 		t.Fatalf("exit code = %d, want 2", code)
 	}
-	if !strings.Contains(stderr.String(), "missing PR number") {
-		t.Errorf("stderr should mention missing PR number, got %q", stderr.String())
+	if !strings.Contains(stderr.String(), "missing issue or PR number") {
+		t.Errorf("stderr should mention missing issue or PR number, got %q", stderr.String())
 	}
 }
 

@@ -17,6 +17,7 @@ import (
 	"github.com/spf13/pflag"
 	"golang.org/x/oauth2"
 
+	"github.com/sushichan044/gh-timeline/internal/githuburl"
 	"github.com/sushichan044/gh-timeline/internal/timeline"
 	"github.com/sushichan044/gh-timeline/internal/version"
 )
@@ -126,8 +127,8 @@ func runTimeline(ctx context.Context, args []string, stdout, stderr io.Writer, d
 		return exitOK
 	}
 
-	if opts.prNumber <= 0 {
-		fmt.Fprintln(stderr, "gh timeline: missing PR number")
+	if opts.issueOrPRNumber <= 0 {
+		fmt.Fprintln(stderr, "gh timeline: missing issue or PR number")
 		writeHelp(stderr, false, d.SkillFS)
 		return exitUsage
 	}
@@ -144,7 +145,7 @@ func runTimeline(ctx context.Context, args []string, stdout, stderr io.Writer, d
 		return exitError
 	}
 
-	events, err := d.Fetch(ctx, client, repo, opts.prNumber)
+	events, err := d.Fetch(ctx, client, repo, opts.issueOrPRNumber)
 	if err != nil {
 		fmt.Fprintf(stderr, "gh timeline: %v\n", err)
 		return exitError
@@ -188,12 +189,12 @@ func resolveRepo(repoFlag string, current func() (timeline.Repo, error)) (timeli
 }
 
 type flagOpts struct {
-	repoFlag    string
-	jsonOutput  bool
-	jsonSet     bool // distinguishes "user did not pass --json/--no-json" from explicit false
-	help        bool
-	showVersion bool
-	prNumber    int
+	repoFlag        string
+	jsonOutput      bool
+	jsonSet         bool // distinguishes "user did not pass --json/--no-json" from explicit false
+	help            bool
+	showVersion     bool
+	issueOrPRNumber int
 }
 
 func parseFlags(args []string, stderr io.Writer, skillFS fs.FS) (flagOpts, error) {
@@ -229,14 +230,35 @@ func parseFlags(args []string, stderr io.Writer, skillFS fs.FS) (flagOpts, error
 
 	rest := fs.Args()
 	if len(rest) > 1 {
-		return flagOpts{}, fmt.Errorf("expected one PR number, got %d extra args", len(rest)-1)
+		return flagOpts{}, fmt.Errorf("expected one issue or PR number or GitHub URL, got %d extra args", len(rest)-1)
 	}
 	if len(rest) == 1 {
-		n, err := strconv.Atoi(rest[0])
-		if err != nil {
-			return flagOpts{}, fmt.Errorf("invalid PR number %q", rest[0])
+		if err := consumePositionalArg(&opts, rest[0]); err != nil {
+			return flagOpts{}, err
 		}
-		opts.prNumber = n
 	}
 	return opts, nil
+}
+
+// consumePositionalArg writes the single positional argument (either a number or
+// a GitHub URL) into opts, or returns an error suitable for surfacing to the
+// user. We try the cheap numeric parse first; anything else falls through to
+// the URL parser. The "--repo + URL" conflict is only flagged once the URL
+// itself parses — that way a typo like "abc" reports as a plain invalid
+// argument instead of complaining about a non-existent --repo clash.
+func consumePositionalArg(opts *flagOpts, arg string) error {
+	if n, err := strconv.Atoi(arg); err == nil {
+		opts.issueOrPRNumber = n
+		return nil
+	}
+	ref, err := githuburl.Parse(arg)
+	if err != nil {
+		return fmt.Errorf("invalid issue or PR number or GitHub URL %q: %w", arg, err)
+	}
+	if opts.repoFlag != "" {
+		return errors.New("--repo cannot be combined with a GitHub URL")
+	}
+	opts.repoFlag = ref.Repo.Owner + "/" + ref.Repo.Name
+	opts.issueOrPRNumber = ref.Number
+	return nil
 }

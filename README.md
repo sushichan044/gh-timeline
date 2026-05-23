@@ -28,7 +28,9 @@ gh extension install .
 
 ## Usage
 
-`<number>` can be an Issue or a PR number — both work.
+The positional argument is either an Issue/PR number or a full GitHub URL —
+both work for issues and PRs. GitHub Enterprise Server URLs are accepted as
+long as the host is reachable with the same `gh auth` configuration.
 
 ```sh
 # Inside a clone of the repo
@@ -37,12 +39,19 @@ gh timeline 1234
 # Or from anywhere
 gh timeline --repo cli/cli 1234
 
+# Paste a URL directly (no --repo needed)
+gh timeline https://github.com/cli/cli/pull/1234
+gh timeline https://github.com/cli/cli/issues/5678
+
 # Force JSON
 gh timeline --json --repo cli/cli 1234 | jq '.[] | {type, actor, timestamp}'
 
 # Force text even under an AI agent
 gh timeline --no-json --repo cli/cli 1234
 ```
+
+`--repo` cannot be combined with a URL — the URL already carries the
+repository, and silently overriding it would surprise users.
 
 ### Flags
 
