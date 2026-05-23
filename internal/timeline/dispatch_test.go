@@ -256,13 +256,12 @@ func TestDispatchPRNode_richSummariesPerType(t *testing.T) {
 				n.CrossReferencedEvent.Actor.Login = "mia"
 				n.CrossReferencedEvent.CreatedAt = dt(ts)
 				n.CrossReferencedEvent.Source.PullRequest.Number = 42
-				n.CrossReferencedEvent.Source.PullRequest.Title = "Other PR"
 				n.CrossReferencedEvent.Source.PullRequest.Repository.NameWithOwner = "octo/other"
 				return n
 			}(),
 			wantType:    "CrossReferencedEvent",
 			wantActor:   "mia",
-			wantSummary: "referenced from octo/other#42: Other PR",
+			wantSummary: "referenced from octo/other#42",
 		},
 		{
 			name: "ReviewDismissedEvent quotes the dismissing reason",
@@ -285,13 +284,12 @@ func TestDispatchPRNode_richSummariesPerType(t *testing.T) {
 				n.SubIssueAddedEvent.Actor.Login = "pat"
 				n.SubIssueAddedEvent.CreatedAt = dt(ts)
 				n.SubIssueAddedEvent.SubIssue.Number = 7
-				n.SubIssueAddedEvent.SubIssue.Title = "Implement child"
 				n.SubIssueAddedEvent.SubIssue.Repository.NameWithOwner = "octo/repo"
 				return n
 			}(),
 			wantType:    "SubIssueAddedEvent",
 			wantActor:   "pat",
-			wantSummary: "added sub-issue octo/repo#7: Implement child",
+			wantSummary: "added sub-issue octo/repo#7",
 		},
 		{
 			name: "SubIssueRemovedEvent uses the removed verb",
@@ -300,13 +298,12 @@ func TestDispatchPRNode_richSummariesPerType(t *testing.T) {
 				n.SubIssueRemovedEvent.Actor.Login = "pat"
 				n.SubIssueRemovedEvent.CreatedAt = dt(ts)
 				n.SubIssueRemovedEvent.SubIssue.Number = 7
-				n.SubIssueRemovedEvent.SubIssue.Title = "Implement child"
 				n.SubIssueRemovedEvent.SubIssue.Repository.NameWithOwner = "octo/repo"
 				return n
 			}(),
 			wantType:    "SubIssueRemovedEvent",
 			wantActor:   "pat",
-			wantSummary: "removed sub-issue octo/repo#7: Implement child",
+			wantSummary: "removed sub-issue octo/repo#7",
 		},
 		{
 			name: "SubIssueAddedEvent falls back to bare verb when issue ref is empty",
@@ -327,13 +324,12 @@ func TestDispatchPRNode_richSummariesPerType(t *testing.T) {
 				n.ParentIssueAddedEvent.Actor.Login = "quinn"
 				n.ParentIssueAddedEvent.CreatedAt = dt(ts)
 				n.ParentIssueAddedEvent.Parent.Number = 3
-				n.ParentIssueAddedEvent.Parent.Title = "Epic"
 				n.ParentIssueAddedEvent.Parent.Repository.NameWithOwner = "octo/repo"
 				return n
 			}(),
 			wantType:    "ParentIssueAddedEvent",
 			wantActor:   "quinn",
-			wantSummary: "added parent issue octo/repo#3: Epic",
+			wantSummary: "added parent issue octo/repo#3",
 		},
 		{
 			name: "ParentIssueRemovedEvent uses the removed verb",
@@ -342,13 +338,12 @@ func TestDispatchPRNode_richSummariesPerType(t *testing.T) {
 				n.ParentIssueRemovedEvent.Actor.Login = "quinn"
 				n.ParentIssueRemovedEvent.CreatedAt = dt(ts)
 				n.ParentIssueRemovedEvent.Parent.Number = 3
-				n.ParentIssueRemovedEvent.Parent.Title = "Epic"
 				n.ParentIssueRemovedEvent.Parent.Repository.NameWithOwner = "octo/repo"
 				return n
 			}(),
 			wantType:    "ParentIssueRemovedEvent",
 			wantActor:   "quinn",
-			wantSummary: "removed parent issue octo/repo#3: Epic",
+			wantSummary: "removed parent issue octo/repo#3",
 		},
 		{
 			name: "BlockedByAddedEvent names the blocking issue",
@@ -357,13 +352,12 @@ func TestDispatchPRNode_richSummariesPerType(t *testing.T) {
 				n.BlockedByAddedEvent.Actor.Login = "rita"
 				n.BlockedByAddedEvent.CreatedAt = dt(ts)
 				n.BlockedByAddedEvent.BlockingIssue.Number = 99
-				n.BlockedByAddedEvent.BlockingIssue.Title = "Upstream blocker"
 				n.BlockedByAddedEvent.BlockingIssue.Repository.NameWithOwner = "octo/dep"
 				return n
 			}(),
 			wantType:    "BlockedByAddedEvent",
 			wantActor:   "rita",
-			wantSummary: "blocked by octo/dep#99: Upstream blocker",
+			wantSummary: "blocked by octo/dep#99",
 		},
 		{
 			name: "BlockedByRemovedEvent uses the no-longer phrasing",
@@ -372,13 +366,12 @@ func TestDispatchPRNode_richSummariesPerType(t *testing.T) {
 				n.BlockedByRemovedEvent.Actor.Login = "rita"
 				n.BlockedByRemovedEvent.CreatedAt = dt(ts)
 				n.BlockedByRemovedEvent.BlockingIssue.Number = 99
-				n.BlockedByRemovedEvent.BlockingIssue.Title = "Upstream blocker"
 				n.BlockedByRemovedEvent.BlockingIssue.Repository.NameWithOwner = "octo/dep"
 				return n
 			}(),
 			wantType:    "BlockedByRemovedEvent",
 			wantActor:   "rita",
-			wantSummary: "no longer blocked by octo/dep#99: Upstream blocker",
+			wantSummary: "no longer blocked by octo/dep#99",
 		},
 		{
 			name: "BlockingAddedEvent names the blocked downstream issue",
@@ -387,13 +380,12 @@ func TestDispatchPRNode_richSummariesPerType(t *testing.T) {
 				n.BlockingAddedEvent.Actor.Login = "sue"
 				n.BlockingAddedEvent.CreatedAt = dt(ts)
 				n.BlockingAddedEvent.BlockedIssue.Number = 12
-				n.BlockingAddedEvent.BlockedIssue.Title = "Downstream consumer"
 				n.BlockingAddedEvent.BlockedIssue.Repository.NameWithOwner = "octo/consumer"
 				return n
 			}(),
 			wantType:    "BlockingAddedEvent",
 			wantActor:   "sue",
-			wantSummary: "blocking octo/consumer#12: Downstream consumer",
+			wantSummary: "blocking octo/consumer#12",
 		},
 		{
 			name: "BlockingRemovedEvent uses the no-longer phrasing",
@@ -402,13 +394,12 @@ func TestDispatchPRNode_richSummariesPerType(t *testing.T) {
 				n.BlockingRemovedEvent.Actor.Login = "sue"
 				n.BlockingRemovedEvent.CreatedAt = dt(ts)
 				n.BlockingRemovedEvent.BlockedIssue.Number = 12
-				n.BlockingRemovedEvent.BlockedIssue.Title = "Downstream consumer"
 				n.BlockingRemovedEvent.BlockedIssue.Repository.NameWithOwner = "octo/consumer"
 				return n
 			}(),
 			wantType:    "BlockingRemovedEvent",
 			wantActor:   "sue",
-			wantSummary: "no longer blocking octo/consumer#12: Downstream consumer",
+			wantSummary: "no longer blocking octo/consumer#12",
 		},
 		{
 			name: "AddedToProjectV2Event quotes the project title",
@@ -650,11 +641,10 @@ func TestDispatchIssueNode_subIssueFamily(t *testing.T) {
 				n.SubIssueAddedEvent.Actor.Login = "alice"
 				n.SubIssueAddedEvent.CreatedAt = dt(ts)
 				n.SubIssueAddedEvent.SubIssue.Number = 42
-				n.SubIssueAddedEvent.SubIssue.Title = "Child task"
 				n.SubIssueAddedEvent.SubIssue.Repository.NameWithOwner = "octo/repo"
 				return n
 			}(),
-			wantSummary: "added sub-issue octo/repo#42: Child task",
+			wantSummary: "added sub-issue octo/repo#42",
 		},
 		{
 			name: "ParentIssueAddedEvent surfaces the linked parent",
@@ -663,11 +653,10 @@ func TestDispatchIssueNode_subIssueFamily(t *testing.T) {
 				n.ParentIssueAddedEvent.Actor.Login = "alice"
 				n.ParentIssueAddedEvent.CreatedAt = dt(ts)
 				n.ParentIssueAddedEvent.Parent.Number = 1
-				n.ParentIssueAddedEvent.Parent.Title = "Tracking issue"
 				n.ParentIssueAddedEvent.Parent.Repository.NameWithOwner = "octo/repo"
 				return n
 			}(),
-			wantSummary: "added parent issue octo/repo#1: Tracking issue",
+			wantSummary: "added parent issue octo/repo#1",
 		},
 		{
 			name: "BlockingAddedEvent surfaces the blocked downstream issue",
@@ -676,11 +665,10 @@ func TestDispatchIssueNode_subIssueFamily(t *testing.T) {
 				n.BlockingAddedEvent.Actor.Login = "alice"
 				n.BlockingAddedEvent.CreatedAt = dt(ts)
 				n.BlockingAddedEvent.BlockedIssue.Number = 5
-				n.BlockingAddedEvent.BlockedIssue.Title = "Consumer"
 				n.BlockingAddedEvent.BlockedIssue.Repository.NameWithOwner = "octo/consumer"
 				return n
 			}(),
-			wantSummary: "blocking octo/consumer#5: Consumer",
+			wantSummary: "blocking octo/consumer#5",
 		},
 	}
 

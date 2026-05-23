@@ -454,11 +454,8 @@ func handleSimpleWord(typename, word string, f commonEvent) Event {
 }
 
 func handleCrossReferenced(typename string, f crossReferencedEventFragment) Event {
-	repo, num, title := subjectInfo(f.Source)
+	repo, num := subjectInfo(f.Source)
 	summary := fmt.Sprintf("referenced from %s#%d", repo, num)
-	if title != "" {
-		summary = fmt.Sprintf("%s: %s", summary, truncate(title))
-	}
 	return Event{
 		Type:      typename,
 		Actor:     string(f.Actor.Login),
@@ -483,7 +480,7 @@ func handleReferenced(typename string, f referencedEventFragment) Event {
 }
 
 func handleMarkedAsDuplicate(typename string, f markedAsDuplicateEventFragment) Event {
-	repo, num, _ := subjectInfo(f.Canonical)
+	repo, num := subjectInfo(f.Canonical)
 	summary := "marked as duplicate"
 	if num != 0 {
 		summary = fmt.Sprintf("duplicate of %s#%d", repo, num)
@@ -522,13 +519,10 @@ func handleTransferred(typename string, f transferredEventFragment) Event {
 }
 
 func handleConnected(typename, verb string, f connectedEventFragment) Event {
-	repo, num, title := subjectInfo(f.Subject)
+	repo, num := subjectInfo(f.Subject)
 	summary := verb
 	if num != 0 {
 		summary = fmt.Sprintf("%s %s#%d", verb, repo, num)
-		if title != "" {
-			summary = fmt.Sprintf("%s: %s", summary, truncate(title))
-		}
 	}
 	return Event{
 		Type:      typename,
@@ -784,12 +778,7 @@ func issueRefSummary(verb string, ref issueRefFragment) string {
 	if num == 0 {
 		return verb
 	}
-	repo := string(ref.Repository.NameWithOwner)
-	summary := fmt.Sprintf("%s %s#%d", verb, repo, num)
-	if title := string(ref.Title); title != "" {
-		summary = fmt.Sprintf("%s: %s", summary, truncate(title))
-	}
-	return summary
+	return fmt.Sprintf("%s %s#%d", verb, string(ref.Repository.NameWithOwner), num)
 }
 
 func handleSubIssue(typename, verb string, f subIssueEventFragment) Event {
@@ -1009,14 +998,14 @@ func shortSHA(sha string) string {
 // subjectInfo extracts the repository / number / title common to Issue and
 // PullRequest variants of a ReferencedSubject union value. Returns (repo,
 // number, title); a zero number means neither side was populated.
-func subjectInfo(s subjectFragment) (string, int, string) {
+func subjectInfo(s subjectFragment) (string, int) {
 	if n := int(s.PullRequest.Number); n != 0 {
-		return string(s.PullRequest.Repository.NameWithOwner), n, string(s.PullRequest.Title)
+		return string(s.PullRequest.Repository.NameWithOwner), n
 	}
 	if n := int(s.Issue.Number); n != 0 {
-		return string(s.Issue.Repository.NameWithOwner), n, string(s.Issue.Title)
+		return string(s.Issue.Repository.NameWithOwner), n
 	}
-	return "", 0, ""
+	return "", 0
 }
 
 // pickReviewerLabel produces a short label for whichever member of the
