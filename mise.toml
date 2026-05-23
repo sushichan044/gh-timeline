@@ -5,6 +5,12 @@
 experimental = true
 idiomatic_version_file_enable_tools = ["go"]
 
+[tools]
+"aqua:golangci/golangci-lint" = "2.12.2"
+
+[deps.go]
+auto = true
+
 [tasks."lint"]
 run = [{ tasks = ["lint:golangci", "lint:deadcode", "lint:gofix"] }]
 
@@ -59,6 +65,3 @@ run = "go run ."
 description = "Run the CLI locally as if invoked by an AI agent (forces JSON output and the SKILL.md --help)"
 env = { AGENT = "dev-ai" }
 run = "go run ."
-
-[tools]
-"aqua:golangci/golangci-lint" = "2.12.2"
