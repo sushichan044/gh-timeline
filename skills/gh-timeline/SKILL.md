@@ -1,6 +1,6 @@
 ---
 name: gh-timeline
-description: Render a GitHub Issue or Pull Request's full event timeline in chronological order, as JSON for AI agents.
+description: Use this to view the timeline of GitHub issues or pull requests. Note that it does not fetch the title and description, unlike `gh pr view`.
 allowed-tools:
   - Bash(gh timeline *)
 ---
@@ -8,7 +8,7 @@ allowed-tools:
 # gh-timeline
 
 When you need an Issue or PR's complete chronological event history (commits,
-reviews, comments, force pushes, labels, merges, etc.) in one call, run:
+reviews, comments, force pushes, labels, merges, cross references, etc.) in one call, run:
 
 ```sh
 gh timeline <issue-or-pr-number-or-URL>
