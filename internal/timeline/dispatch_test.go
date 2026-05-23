@@ -182,7 +182,21 @@ func TestDispatchPRNode_richSummariesPerType(t *testing.T) {
 			wantSummary: "converted to draft",
 		},
 		{
-			name: "HeadRefForcePushedEvent points at the new commit",
+			name: "HeadRefForcePushedEvent shows before → after commit pair",
+			node: func() prTimelineNode {
+				n := prTimelineNode{Typename: "HeadRefForcePushedEvent"}
+				n.HeadRefForcePushedEvent.Actor.Login = "judy"
+				n.HeadRefForcePushedEvent.CreatedAt = dt(ts)
+				n.HeadRefForcePushedEvent.BeforeCommit.OID = "abcdef1234567890"
+				n.HeadRefForcePushedEvent.AfterCommit.OID = "1234567890abcdef"
+				return n
+			}(),
+			wantType:    "HeadRefForcePushedEvent",
+			wantActor:   "judy",
+			wantSummary: "force-pushed head: abcdef1 → 1234567",
+		},
+		{
+			name: "HeadRefForcePushedEvent falls back to after-only when before is empty",
 			node: func() prTimelineNode {
 				n := prTimelineNode{Typename: "HeadRefForcePushedEvent"}
 				n.HeadRefForcePushedEvent.Actor.Login = "judy"

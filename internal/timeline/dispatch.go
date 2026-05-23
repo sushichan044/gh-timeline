@@ -562,16 +562,23 @@ func handleReviewDismissed(typename string, f reviewDismissedEventFragment) Even
 }
 
 func handleForcePushed(typename, verb string, f forcePushedEventFragment) Event {
+	before := string(f.BeforeCommit.OID)
+	after := string(f.AfterCommit.OID)
 	summary := verb
-	if after := string(f.AfterCommit.OID); after != "" {
+	switch {
+	case before != "" && after != "":
+		summary = fmt.Sprintf("%s: %s → %s", verb, shortSHA(before), shortSHA(after))
+	case after != "":
 		summary = fmt.Sprintf("%s to %s", verb, shortSHA(after))
+	case before != "":
+		summary = fmt.Sprintf("%s from %s", verb, shortSHA(before))
 	}
 	return Event{
 		Type:      typename,
 		Actor:     string(f.Actor.Login),
 		Timestamp: f.CreatedAt.Time,
 		Summary:   summary,
-		Ref:       Ref{NodeID: graphqlIDString(f.ID), SHA: string(f.AfterCommit.OID)},
+		Ref:       Ref{NodeID: graphqlIDString(f.ID), SHA: after},
 	}
 }
 
