@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.1](https://github.com/sushichan044/gh-timeline/compare/v1.0.0...v1.0.1) (2026-05-24)
+
+
+### Performance Improvements
+
+* **timeline:** parallelize pagination using skip offset ([#9](https://github.com/sushichan044/gh-timeline/issues/9)) ([6a9002d](https://github.com/sushichan044/gh-timeline/commit/6a9002dab68b28ce98ed71fc88b3af90c4a00b65))
+
 ## 1.0.0 (2026-05-23)
 
 
