@@ -8,6 +8,15 @@ import (
 	"sort"
 
 	"github.com/shurcooL/githubv4"
+	"golang.org/x/sync/errgroup"
+)
+
+const (
+	// timelinePageSize is GitHub's GraphQL maximum for `first:`.
+	timelinePageSize = 100
+	// timelineMaxConcurrency caps in-flight GraphQL queries to stay well below
+	// GitHub's secondary rate limits while still parallelizing N→2 round trips.
+	timelineMaxConcurrency = 10
 )
 
 // GraphQLQuerier is the subset of *githubv4.Client that Fetch consumes. Tests
@@ -18,14 +27,13 @@ type GraphQLQuerier interface {
 
 // Fetch loads every timeline event for the given Issue or PR and returns them
 // sorted chronologically (stable on equal timestamps, preserving server
-// order). It paginates internally; callers see one consolidated slice.
+// order). The first request reports `totalCount`; the remaining offsets are
+// fetched in parallel with bounded concurrency.
 //
 // The number argument is the Issue or PR number — GitHub uses a single
 // numbering space per repository, so `issueOrPullRequest(number:)` resolves
 // either form. Errors surface as wrapped errors; a non-existent
 // issue/PR is reported as a "not found" error.
-//
-//nolint:gocognit // The cursor loop interleaves first-page guard, typename dispatch, and pagination — splitting hides the data flow.
 func Fetch(ctx context.Context, client GraphQLQuerier, repo Repo, number int) ([]Event, error) {
 	if repo.Owner == "" || repo.Name == "" {
 		return nil, errors.New("repository owner and name are required")
@@ -34,69 +42,131 @@ func Fetch(ctx context.Context, client GraphQLQuerier, repo Repo, number int) ([
 		return nil, fmt.Errorf("invalid issue/PR number %d", number)
 	}
 
-	var (
-		all       []Event
-		cursor    *githubv4.String
-		firstPage = true
-	)
-	for {
-		var q timelineQuery
-		vars := map[string]any{
-			"owner": githubv4.String(repo.Owner),
-			"name":  githubv4.String(repo.Name),
-			// Bounded above by MaxInt32 in the input validation; safe to narrow.
-			"number": githubv4.Int(int32(number)),
-			"cursor": cursor,
-		}
-		if err := client.Query(ctx, &q, vars); err != nil {
-			return nil, fmt.Errorf("timeline query failed: %w", err)
-		}
+	firstEvents, totalCount, typename, err := fetchTimelinePage(ctx, client, repo, number, 0)
+	if err != nil {
+		return nil, err
+	}
+	if typename == "" {
+		return nil, fmt.Errorf("%s/%s#%d not found", repo.Owner, repo.Name, number)
+	}
 
-		typename := string(q.Repository.IssueOrPullRequest.Typename)
-		if firstPage {
-			if typename == "" {
-				return nil, fmt.Errorf("%s/%s#%d not found", repo.Owner, repo.Name, number)
-			}
-			firstPage = false
-		}
+	all := firstEvents
+	if totalCount > timelinePageSize {
+		// totalCount fits in githubv4.Int (int32), so (totalCount-1)/100 is well
+		// within int range on every supported platform.
+		extraPageCount := (totalCount - 1) / timelinePageSize
+		extraPages := make([][]Event, extraPageCount)
 
-		// shurcooL/githubv4 populates both inline-fragment branches from the same
-		// JSON object since `timelineItems` shares the key on the wire — pick
-		// whichever branch matches the actual __typename to avoid emitting each
-		// node twice with one set of zero values.
-		var (
-			page    pageInfo
-			handled bool
-		)
-		switch typename {
-		case "PullRequest":
-			prPage := q.Repository.IssueOrPullRequest.PullRequest.TimelineItems
-			for _, n := range prPage.Nodes {
-				all = append(all, dispatchPRNode(n))
-			}
-			page = prPage.PageInfo
-			handled = true
-		case "Issue":
-			issuePage := q.Repository.IssueOrPullRequest.Issue.TimelineItems
-			for _, n := range issuePage.Nodes {
-				all = append(all, dispatchIssueNode(n))
-			}
-			page = issuePage.PageInfo
-			handled = true
+		g, gctx := errgroup.WithContext(ctx)
+		g.SetLimit(timelineMaxConcurrency)
+		for i := range extraPageCount {
+			slot := i
+			offset := (i + 1) * timelinePageSize
+			g.Go(func() error {
+				events, pageErr := fetchExtraPage(gctx, client, repo, number, offset, typename)
+				if pageErr != nil {
+					return pageErr
+				}
+				extraPages[slot] = events
+				return nil
+			})
 		}
-		if !handled {
-			return nil, fmt.Errorf("unexpected issueOrPullRequest typename %q", typename)
+		if waitErr := g.Wait(); waitErr != nil {
+			return nil, waitErr
 		}
-
-		if !bool(page.HasNextPage) {
-			break
+		for _, page := range extraPages {
+			all = append(all, page...)
 		}
-		nextCursor := page.EndCursor
-		cursor = &nextCursor
 	}
 
 	sort.SliceStable(all, func(i, j int) bool {
 		return all[i].Timestamp.Before(all[j].Timestamp)
 	})
 	return all, nil
+}
+
+// fetchExtraPage fetches a non-first page and validates that the Issue/PR
+// still exists and has not been converted to the other kind between requests —
+// otherwise events would be silently dropped on the merge.
+func fetchExtraPage(
+	ctx context.Context,
+	client GraphQLQuerier,
+	repo Repo,
+	number, offset int,
+	expectedTypename string,
+) ([]Event, error) {
+	events, _, pageTypename, err := fetchTimelinePage(ctx, client, repo, number, offset)
+	if err != nil {
+		return nil, err
+	}
+	if pageTypename == "" {
+		return nil, fmt.Errorf(
+			"%s/%s#%d disappeared while fetching page (skip=%d)",
+			repo.Owner,
+			repo.Name,
+			number,
+			offset,
+		)
+	}
+	if pageTypename != expectedTypename {
+		return nil, fmt.Errorf(
+			"issueOrPullRequest typename changed from %q to %q (skip=%d)",
+			expectedTypename,
+			pageTypename,
+			offset,
+		)
+	}
+	return events, nil
+}
+
+// fetchTimelinePage issues one timelineItems query at the given absolute
+// offset. It returns the converted events plus the connection's totalCount
+// and the IssueOrPullRequest typename. An empty typename signals that the
+// issue/PR does not exist; the caller decides whether that is fatal.
+func fetchTimelinePage(
+	ctx context.Context,
+	client GraphQLQuerier,
+	repo Repo,
+	number, skip int,
+) ([]Event, int, string, error) {
+	// Validate inputs locally so the int → int32 narrowing for the GraphQL
+	// variables is recognised as bounded by static analysis (gosec G115).
+	if number <= 0 || number > math.MaxInt32 {
+		return nil, 0, "", fmt.Errorf("invalid issue/PR number %d", number)
+	}
+	if skip < 0 || skip > math.MaxInt32 {
+		return nil, 0, "", fmt.Errorf("invalid skip offset %d", skip)
+	}
+
+	var q timelineQuery
+	vars := map[string]any{
+		"owner":  githubv4.String(repo.Owner),
+		"name":   githubv4.String(repo.Name),
+		"number": githubv4.Int(int32(number)),
+		"skip":   githubv4.Int(int32(skip)),
+	}
+	if err := client.Query(ctx, &q, vars); err != nil {
+		return nil, 0, "", fmt.Errorf("timeline query failed (skip=%d): %w", skip, err)
+	}
+	typename := string(q.Repository.IssueOrPullRequest.Typename)
+	switch typename {
+	case "":
+		return nil, 0, "", nil
+	case "PullRequest":
+		page := q.Repository.IssueOrPullRequest.PullRequest.TimelineItems
+		events := make([]Event, 0, len(page.Nodes))
+		for _, n := range page.Nodes {
+			events = append(events, dispatchPRNode(n))
+		}
+		return events, int(page.TotalCount), typename, nil
+	case "Issue":
+		page := q.Repository.IssueOrPullRequest.Issue.TimelineItems
+		events := make([]Event, 0, len(page.Nodes))
+		for _, n := range page.Nodes {
+			events = append(events, dispatchIssueNode(n))
+		}
+		return events, int(page.TotalCount), typename, nil
+	default:
+		return nil, 0, typename, fmt.Errorf("unexpected issueOrPullRequest typename %q", typename)
+	}
 }
