@@ -63,7 +63,7 @@ func Fetch(ctx context.Context, client GraphQLQuerier, repo Repo, number int) ([
 			slot := i
 			offset := (i + 1) * timelinePageSize
 			g.Go(func() error {
-				events, _, _, pageErr := fetchTimelinePage(gctx, client, repo, number, offset)
+				events, pageErr := fetchExtraPage(gctx, client, repo, number, offset, typename)
 				if pageErr != nil {
 					return pageErr
 				}
@@ -83,6 +83,40 @@ func Fetch(ctx context.Context, client GraphQLQuerier, repo Repo, number int) ([
 		return all[i].Timestamp.Before(all[j].Timestamp)
 	})
 	return all, nil
+}
+
+// fetchExtraPage fetches a non-first page and validates that the Issue/PR
+// still exists and has not been converted to the other kind between requests —
+// otherwise events would be silently dropped on the merge.
+func fetchExtraPage(
+	ctx context.Context,
+	client GraphQLQuerier,
+	repo Repo,
+	number, offset int,
+	expectedTypename string,
+) ([]Event, error) {
+	events, _, pageTypename, err := fetchTimelinePage(ctx, client, repo, number, offset)
+	if err != nil {
+		return nil, err
+	}
+	if pageTypename == "" {
+		return nil, fmt.Errorf(
+			"%s/%s#%d disappeared while fetching page (skip=%d)",
+			repo.Owner,
+			repo.Name,
+			number,
+			offset,
+		)
+	}
+	if pageTypename != expectedTypename {
+		return nil, fmt.Errorf(
+			"issueOrPullRequest typename changed from %q to %q (skip=%d)",
+			expectedTypename,
+			pageTypename,
+			offset,
+		)
+	}
+	return events, nil
 }
 
 // fetchTimelinePage issues one timelineItems query at the given absolute

@@ -49,7 +49,7 @@ func (f *fakeQuerier) Query(_ context.Context, q any, vars map[string]any) error
 	page, ok := f.pages[int(skip)]
 	if !ok {
 		f.t.Errorf("unexpected Query for skip=%d", int(skip))
-		return nil
+		return fmt.Errorf("fakeQuerier: no page registered for skip=%d", int(skip))
 	}
 	*dst = page
 	return nil
@@ -249,6 +249,60 @@ func TestFetch_propagatesFirstPageError(t *testing.T) {
 	_, err := Fetch(context.Background(), fake, Repo{Owner: "octo", Name: "demo"}, 1)
 	if err == nil || !errorContains(err, "boom") {
 		t.Fatalf("expected wrapped boom error, got %v", err)
+	}
+}
+
+func TestFetch_rejectsTypenameChangeBetweenParallelPages(t *testing.T) {
+	t.Parallel()
+
+	// Simulate a race where the first page reports a PullRequest and a parallel
+	// page comes back as an Issue (or vice versa) — Fetch must fail rather than
+	// silently drop the page.
+	prNode := prTimelineNode{Typename: "LabeledEvent"}
+	prNode.LabeledEvent.Actor.Login = "alice"
+	prNode.LabeledEvent.CreatedAt = dt(time.Date(2026, 1, 1, 9, 0, 0, 0, time.UTC))
+	prNode.LabeledEvent.Label.Name = "bug"
+
+	issueNode := issueTimelineNode{Typename: "IssueComment"}
+	issueNode.IssueComment.Author.Login = "bob"
+	issueNode.IssueComment.CreatedAt = dt(time.Date(2026, 1, 2, 9, 0, 0, 0, time.UTC))
+	issueNode.IssueComment.Body = "hello"
+
+	fake := &fakeQuerier{
+		t: t,
+		pages: map[int]timelineQuery{
+			0:   newPRPage(t, []prTimelineNode{prNode}, 200),
+			100: newIssuePage(t, []issueTimelineNode{issueNode}, 200),
+		},
+	}
+
+	_, err := Fetch(context.Background(), fake, Repo{Owner: "octo", Name: "demo"}, 1)
+	if err == nil || !errorContains(err, "typename changed") {
+		t.Fatalf("expected typename-change error, got %v", err)
+	}
+}
+
+func TestFetch_rejectsDisappearanceBetweenParallelPages(t *testing.T) {
+	t.Parallel()
+
+	node := prTimelineNode{Typename: "LabeledEvent"}
+	node.LabeledEvent.Actor.Login = "alice"
+	node.LabeledEvent.CreatedAt = dt(time.Date(2026, 1, 1, 9, 0, 0, 0, time.UTC))
+	node.LabeledEvent.Label.Name = "bug"
+
+	// totalCount=200 forces a parallel page; that page comes back with empty
+	// typename (issue/PR deleted between requests).
+	fake := &fakeQuerier{
+		t: t,
+		pages: map[int]timelineQuery{
+			0:   newPRPage(t, []prTimelineNode{node}, 200),
+			100: {}, // empty typename — simulates "deleted"
+		},
+	}
+
+	_, err := Fetch(context.Background(), fake, Repo{Owner: "octo", Name: "demo"}, 1)
+	if err == nil || !errorContains(err, "disappeared") {
+		t.Fatalf("expected disappearance error, got %v", err)
 	}
 }
 
