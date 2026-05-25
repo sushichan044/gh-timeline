@@ -1,33 +1,31 @@
 package timeline
 
-import "github.com/shurcooL/githubv4"
-
 // Each struct below mirrors one member of the GraphQL
 // PullRequestTimelineItems / IssueTimelineItems union. They are embedded into
 // [prTimelineNode] / [issueTimelineNode] via `graphql:"... on TypeName"` tags
-// so that the shurcooL/githubv4 library generates the inline fragments
+// so that the go-gh GraphQL client generates the inline fragments
 // automatically.
 
 type actorFragment struct {
-	Login githubv4.String
+	Login string
 }
 
 type labelFragment struct {
-	Name githubv4.String
+	Name string
 }
 
 type userOrTeamFragment struct {
 	User struct {
-		Login githubv4.String
+		Login string
 	} `graphql:"... on User"`
 	Bot struct {
-		Login githubv4.String
+		Login string
 	} `graphql:"... on Bot"`
 	Mannequin struct {
-		Login githubv4.String
+		Login string
 	} `graphql:"... on Mannequin"`
 	Team struct {
-		Slug githubv4.String
+		Slug string
 	} `graphql:"... on Team"`
 }
 
@@ -36,24 +34,24 @@ type userOrTeamFragment struct {
 // a union, so each member is spelled out via `... on T`.
 type assigneeFragment struct {
 	User struct {
-		Login githubv4.String
+		Login string
 	} `graphql:"... on User"`
 	Bot struct {
-		Login githubv4.String
+		Login string
 	} `graphql:"... on Bot"`
 	Mannequin struct {
-		Login githubv4.String
+		Login string
 	} `graphql:"... on Mannequin"`
 	Organization struct {
-		Login githubv4.String
+		Login string
 	} `graphql:"... on Organization"`
 }
 
 // pick returns the first non-empty login across the union's members.
 func (a assigneeFragment) pick() string {
-	for _, login := range []githubv4.String{a.User.Login, a.Bot.Login, a.Mannequin.Login, a.Organization.Login} {
-		if s := string(login); s != "" {
-			return s
+	for _, login := range []string{a.User.Login, a.Bot.Login, a.Mannequin.Login, a.Organization.Login} {
+		if login != "" {
+			return login
 		}
 	}
 	return ""
@@ -61,27 +59,27 @@ func (a assigneeFragment) pick() string {
 
 type subjectFragment struct {
 	Issue struct {
-		Number     githubv4.Int
-		Title      githubv4.String
+		Number     int32
+		Title      string
 		Repository struct {
-			NameWithOwner githubv4.String
+			NameWithOwner string
 		}
 	} `graphql:"... on Issue"`
 	PullRequest struct {
-		Number     githubv4.Int
-		Title      githubv4.String
+		Number     int32
+		Title      string
 		Repository struct {
-			NameWithOwner githubv4.String
+			NameWithOwner string
 		}
 	} `graphql:"... on PullRequest"`
 }
 
 type commitFragment struct {
-	OID             githubv4.GitObjectID
-	MessageHeadline githubv4.String
-	CommittedDate   githubv4.DateTime
+	OID             string
+	MessageHeadline string
+	CommittedDate   DateTime
 	Author          struct {
-		Name githubv4.String
+		Name string
 		User actorFragment
 	}
 }
@@ -89,20 +87,20 @@ type commitFragment struct {
 // commonEvent groups the {id, actor, createdAt} selection used by almost every
 // non-commit timeline event.
 type commonEvent struct {
-	ID        githubv4.ID
+	ID        any
 	Actor     actorFragment
-	CreatedAt githubv4.DateTime
+	CreatedAt DateTime
 }
 
 // --- Fragments shared by both PR and Issue timelines -----------------------
 
 type issueCommentFragment struct {
-	ID         githubv4.ID
+	ID         any
 	DatabaseID int64 `graphql:"databaseId"`
 	Author     actorFragment
-	Body       githubv4.String
-	CreatedAt  githubv4.DateTime
-	URL        githubv4.URI
+	Body       string
+	CreatedAt  DateTime
+	URL        URI
 }
 
 type labeledEventFragment struct {
@@ -120,20 +118,20 @@ type assignedEventFragment struct {
 type milestonedEventFragment struct {
 	commonEvent
 
-	MilestoneTitle githubv4.String
+	MilestoneTitle string
 }
 
 type renamedTitleEventFragment struct {
 	commonEvent
 
-	PreviousTitle githubv4.String
-	CurrentTitle  githubv4.String
+	PreviousTitle string
+	CurrentTitle  string
 }
 
 type closedEventFragment struct {
 	commonEvent
 
-	StateReason githubv4.String
+	StateReason string
 }
 
 type reopenedEventFragment struct {
@@ -143,7 +141,7 @@ type reopenedEventFragment struct {
 type lockedEventFragment struct {
 	commonEvent
 
-	LockReason githubv4.String
+	LockReason string
 }
 
 type crossReferencedEventFragment struct {
@@ -157,7 +155,7 @@ type referencedEventFragment struct {
 
 	Subject subjectFragment
 	Commit  struct {
-		OID githubv4.GitObjectID
+		OID string
 	}
 }
 
@@ -171,7 +169,7 @@ type convertedToDiscussionEventFragment struct {
 	commonEvent
 
 	Discussion struct {
-		Number githubv4.Int
+		Number int32
 	}
 }
 
@@ -179,7 +177,7 @@ type transferredEventFragment struct {
 	commonEvent
 
 	FromRepository struct {
-		NameWithOwner githubv4.String
+		NameWithOwner string
 	}
 }
 
@@ -193,25 +191,25 @@ type projectChangeEventFragment struct {
 	commonEvent
 
 	Project struct {
-		Name githubv4.String
+		Name string
 	}
-	ProjectColumnName githubv4.String
+	ProjectColumnName string
 }
 
 type movedColumnsInProjectEventFragment struct {
 	commonEvent
 
-	PreviousProjectColumnName githubv4.String
-	ProjectColumnName         githubv4.String
+	PreviousProjectColumnName string
+	ProjectColumnName         string
 }
 
 type userBlockedEventFragment struct {
 	commonEvent
 
 	Subject struct {
-		Login githubv4.String
+		Login string
 	}
-	BlockDuration githubv4.String
+	BlockDuration string
 }
 
 // issueRefFragment captures the {repo, number, title} triple used by the
@@ -219,10 +217,10 @@ type userBlockedEventFragment struct {
 // subjectFragment exposes for the Issue branch, but these events reference
 // the related issue directly without going through a union.
 type issueRefFragment struct {
-	Number     githubv4.Int
-	Title      githubv4.String
+	Number     int32
+	Title      string
 	Repository struct {
-		NameWithOwner githubv4.String
+		NameWithOwner string
 	}
 }
 
@@ -257,8 +255,8 @@ type projectV2ChangeEventFragment struct {
 	commonEvent
 
 	Project struct {
-		Number githubv4.Int
-		Title  githubv4.String
+		Number int32
+		Title  string
 	}
 }
 
@@ -266,11 +264,11 @@ type projectV2StatusChangedEventFragment struct {
 	commonEvent
 
 	Project struct {
-		Number githubv4.Int
-		Title  githubv4.String
+		Number int32
+		Title  string
 	}
-	PreviousStatus githubv4.String
-	Status         githubv4.String
+	PreviousStatus string
+	Status         string
 }
 
 // issueFieldUnionFragment selects the common `name` from the IssueFields
@@ -279,7 +277,7 @@ type projectV2StatusChangedEventFragment struct {
 // single `... on IssueFieldCommon` spread covers them.
 type issueFieldUnionFragment struct {
 	IssueFieldCommon struct {
-		Name githubv4.String
+		Name string
 	} `graphql:"... on IssueFieldCommon"`
 }
 
@@ -287,15 +285,15 @@ type issueFieldAddedEventFragment struct {
 	commonEvent
 
 	IssueField issueFieldUnionFragment
-	Value      githubv4.String
+	Value      string
 }
 
 type issueFieldChangedEventFragment struct {
 	commonEvent
 
 	IssueField    issueFieldUnionFragment
-	PreviousValue githubv4.String
-	NewValue      githubv4.String
+	PreviousValue string
+	NewValue      string
 }
 
 type issueFieldRemovedEventFragment struct {
@@ -308,7 +306,7 @@ type issueTypeEventFragment struct {
 	commonEvent
 
 	IssueType struct {
-		Name githubv4.String
+		Name string
 	}
 }
 
@@ -316,10 +314,10 @@ type issueTypeChangedEventFragment struct {
 	commonEvent
 
 	IssueType struct {
-		Name githubv4.String
+		Name string
 	}
 	PrevIssueType struct {
-		Name githubv4.String
+		Name string
 	}
 }
 
@@ -329,57 +327,57 @@ type issueCommentPinEventFragment struct {
 	commonEvent
 
 	IssueComment struct {
-		ID         githubv4.ID
+		ID         any
 		DatabaseID int64 `graphql:"databaseId"`
-		URL        githubv4.URI
+		URL        URI
 	}
 }
 
 // --- PR-only fragments -----------------------------------------------------
 
 type pullRequestCommitFragment struct {
-	ID     githubv4.ID
+	ID     any
 	Commit commitFragment
-	URL    githubv4.URI
+	URL    URI
 }
 
 type pullRequestReviewFragment struct {
-	ID          githubv4.ID
+	ID          any
 	DatabaseID  int64 `graphql:"databaseId"`
 	Author      actorFragment
-	State       githubv4.PullRequestReviewState
-	Body        githubv4.String
-	SubmittedAt githubv4.DateTime
-	CreatedAt   githubv4.DateTime
-	URL         githubv4.URI
+	State       string
+	Body        string
+	SubmittedAt DateTime
+	CreatedAt   DateTime
+	URL         URI
 }
 
 type pullRequestReviewThreadFragment struct {
-	ID githubv4.ID
+	ID any
 }
 
 type pullRequestRevisionMarkerFragment struct {
-	CreatedAt      githubv4.DateTime
+	CreatedAt      DateTime
 	LastSeenCommit struct {
-		OID githubv4.GitObjectID
+		OID string
 	}
 }
 
 type pullRequestCommitCommentThreadFragment struct {
-	ID     githubv4.ID
+	ID     any
 	Commit struct {
-		OID githubv4.GitObjectID
+		OID string
 	}
 }
 
 type mergedEventFragment struct {
 	commonEvent
 
-	URL    githubv4.URI
+	URL    URI
 	Commit struct {
-		OID githubv4.GitObjectID
+		OID string
 	}
-	MergeRefName githubv4.String
+	MergeRefName string
 }
 
 type reviewRequestedEventFragment struct {
@@ -391,7 +389,7 @@ type reviewRequestedEventFragment struct {
 type reviewDismissedEventFragment struct {
 	commonEvent
 
-	DismissalMessage githubv4.String
+	DismissalMessage string
 	Review           struct {
 		Author actorFragment
 	}
@@ -409,30 +407,30 @@ type forcePushedEventFragment struct {
 	commonEvent
 
 	BeforeCommit struct {
-		OID githubv4.GitObjectID
+		OID string
 	}
 	AfterCommit struct {
-		OID githubv4.GitObjectID
+		OID string
 	}
 }
 
 type baseRefChangedEventFragment struct {
 	commonEvent
 
-	PreviousRefName githubv4.String
-	CurrentRefName  githubv4.String
+	PreviousRefName string
+	CurrentRefName  string
 }
 
 type baseRefDeletedEventFragment struct {
 	commonEvent
 
-	BaseRefName githubv4.String
+	BaseRefName string
 }
 
 type headRefDeletedEventFragment struct {
 	commonEvent
 
-	HeadRefName githubv4.String
+	HeadRefName string
 }
 
 type headRefRestoredEventFragment struct {
@@ -443,7 +441,7 @@ type deployedEventFragment struct {
 	commonEvent
 
 	Deployment struct {
-		Environment githubv4.String
+		Environment string
 	}
 }
 
@@ -452,7 +450,7 @@ type deploymentEnvironmentChangedEventFragment struct {
 
 	DeploymentStatus struct {
 		Deployment struct {
-			Environment githubv4.String
+			Environment string
 		}
 	}
 }
@@ -464,8 +462,8 @@ type autoChangeEventFragment struct {
 type automaticBaseChangeEventFragment struct {
 	commonEvent
 
-	OldBase githubv4.String
-	NewBase githubv4.String
+	OldBase string
+	NewBase string
 }
 
 type mergeQueueEventFragment struct {

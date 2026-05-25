@@ -7,7 +7,7 @@ import (
 	"math"
 	"sort"
 
-	"github.com/shurcooL/githubv4"
+	graphql "github.com/cli/shurcooL-graphql"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -19,10 +19,10 @@ const (
 	timelineMaxConcurrency = 10
 )
 
-// GraphQLQuerier is the subset of *githubv4.Client that Fetch consumes. Tests
+// GraphQLQuerier is the subset of *api.GraphQLClient that Fetch consumes. Tests
 // pass a fake; production code wires in the real client built in cmd.
 type GraphQLQuerier interface {
-	Query(ctx context.Context, q any, variables map[string]any) error
+	QueryWithContext(ctx context.Context, name string, q any, variables map[string]any) error
 }
 
 // Fetch loads every timeline event for the given Issue or PR and returns them
@@ -140,15 +140,15 @@ func fetchTimelinePage(
 
 	var q timelineQuery
 	vars := map[string]any{
-		"owner":  githubv4.String(repo.Owner),
-		"name":   githubv4.String(repo.Name),
-		"number": githubv4.Int(int32(number)),
-		"skip":   githubv4.Int(int32(skip)),
+		"owner":  graphql.String(repo.Owner),
+		"name":   graphql.String(repo.Name),
+		"number": graphql.Int(number),
+		"skip":   graphql.Int(skip),
 	}
-	if err := client.Query(ctx, &q, vars); err != nil {
+	if err := client.QueryWithContext(ctx, "TimelineQuery", &q, vars); err != nil {
 		return nil, 0, "", fmt.Errorf("timeline query failed (skip=%d): %w", skip, err)
 	}
-	typename := string(q.Repository.IssueOrPullRequest.Typename)
+	typename := q.Repository.IssueOrPullRequest.Typename
 	switch typename {
 	case "":
 		return nil, 0, "", nil

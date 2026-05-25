@@ -19,7 +19,7 @@ const fakeAgentHelp = "# gh timeline — reference\n\nflags, schema, examples he
 // canned Fetch result, so the querier is never actually consulted.
 type stubQuerier struct{}
 
-func (stubQuerier) Query(context.Context, any, map[string]any) error { return nil }
+func (stubQuerier) QueryWithContext(context.Context, string, any, map[string]any) error { return nil }
 
 type fakeSkills struct {
 	called bool

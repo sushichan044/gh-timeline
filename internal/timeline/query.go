@@ -1,7 +1,5 @@
 package timeline
 
-import "github.com/shurcooL/githubv4"
-
 // Repo is the minimal repo coordinate Fetch needs.
 type Repo struct {
 	Owner string
@@ -10,11 +8,11 @@ type Repo struct {
 
 // prTimelineNode is one timeline item under a PullRequest. The Typename field
 // holds the GraphQL `__typename` discriminator; the matching `... on Foo`
-// fragment is populated by shurcooL/githubv4 while the rest are zero values.
+// fragment is populated by cli/shurcooL-graphql while the rest are zero values.
 //
 
 type prTimelineNode struct {
-	Typename githubv4.String `graphql:"__typename"`
+	Typename string `graphql:"__typename"`
 
 	// Shared with Issue timeline
 	IssueComment               issueCommentFragment               `graphql:"... on IssueComment"`
@@ -112,7 +110,7 @@ type prTimelineNode struct {
 //
 
 type issueTimelineNode struct {
-	Typename githubv4.String `graphql:"__typename"`
+	Typename string `graphql:"__typename"`
 
 	IssueComment               issueCommentFragment               `graphql:"... on IssueComment"`
 	LabeledEvent               labeledEventFragment               `graphql:"... on LabeledEvent"`
@@ -175,7 +173,7 @@ type issueTimelineNode struct {
 	IssueCommentUnpinnedEvent issueCommentPinEventFragment `graphql:"... on IssueCommentUnpinnedEvent"`
 }
 
-// timelineQuery is the top-level query shape passed to githubv4.Client.Query.
+// timelineQuery is the top-level query shape passed to GraphQLQuerier.QueryWithContext.
 // Only one of the two `... on` branches under IssueOrPullRequest is populated
 // per response; the other stays zero-valued.
 //
@@ -185,16 +183,16 @@ type issueTimelineNode struct {
 type timelineQuery struct {
 	Repository struct {
 		IssueOrPullRequest struct {
-			Typename    githubv4.String `graphql:"__typename"`
+			Typename    string `graphql:"__typename"`
 			PullRequest struct {
 				TimelineItems struct {
-					TotalCount githubv4.Int
+					TotalCount int32
 					Nodes      []prTimelineNode
 				} `graphql:"timelineItems(first: 100, skip: $skip)"`
 			} `graphql:"... on PullRequest"`
 			Issue struct {
 				TimelineItems struct {
-					TotalCount githubv4.Int
+					TotalCount int32
 					Nodes      []issueTimelineNode
 				} `graphql:"timelineItems(first: 100, skip: $skip)"`
 			} `graphql:"... on Issue"`
