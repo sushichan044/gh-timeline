@@ -15,9 +15,11 @@ import (
 	"github.com/cli/go-gh/v2/pkg/repository"
 )
 
-// expectedPathSegments is the number of /-separated parts in a canonical
-// GitHub issue or pull URL path: <owner>/<repo>/<kind>/<number>.
-const expectedPathSegments = 4
+// minPathSegments is the minimum number of /-separated parts required in a
+// GitHub issue or pull URL path: <owner>/<repo>/<kind>/<number>. Extra
+// segments (e.g. /files, /commits/<sha>) are accepted and ignored so that
+// URLs copied from sub-pages of an issue or PR still resolve correctly.
+const minPathSegments = 4
 
 // Reference identifies an Issue or Pull Request: the repository it lives in
 // and its number. The repository carries the host so GitHub Enterprise Server
@@ -27,15 +29,16 @@ type Reference struct {
 	Number int
 }
 
-// Parse extracts a [Reference] from canonical GitHub web URLs of the form:
+// Parse extracts a [Reference] from GitHub web URLs whose path starts with:
 //
 //	https://<host>/<owner>/<repo>/issues/<number>
 //	https://<host>/<owner>/<repo>/pull/<number>
 //
 // Any host is accepted so GitHub Enterprise Server URLs work the same way.
-// Fragments and query strings are ignored. The path must contain exactly four
-// segments — anything else (wiki pages, /files suffix, repo root, etc.) is
-// rejected so users get a clear error rather than a silent wrong fetch.
+// Fragments, query strings, and additional path segments after the number
+// (e.g. /files, /commits/<sha>) are all ignored, so URLs copied from
+// sub-pages of an issue or PR resolve correctly. Paths that are too short or
+// use an unrecognised kind (e.g. /wiki/) are rejected.
 //
 // Owner / repo / host normalization is handed off to
 // [repository.ParseWithHost], so this function only owns the path-level
@@ -73,12 +76,14 @@ func parseWebURL(raw string) (*url.URL, error) {
 	return u, nil
 }
 
-// splitIssueOrPRPath verifies the path matches /<owner>/<repo>/(issues|pull)/<number>
-// exactly and returns the parts. The owner/repo strings are returned as-is —
-// [repository.ParseWithHost] does the final normalization.
+// splitIssueOrPRPath verifies that the path starts with
+// /<owner>/<repo>/(issues|pull)/<number> and returns those four parts.
+// Additional segments after the number are silently ignored. The owner/repo
+// strings are returned as-is — [repository.ParseWithHost] does the final
+// normalization.
 func splitIssueOrPRPath(path string) (string, string, int, error) {
 	segments := strings.Split(strings.Trim(path, "/"), "/")
-	if len(segments) != expectedPathSegments {
+	if len(segments) < minPathSegments {
 		return "", "", 0, fmt.Errorf(
 			"path must be /<owner>/<repo>/(issues|pull)/<number>, got %q", path)
 	}

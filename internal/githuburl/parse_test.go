@@ -46,6 +46,26 @@ func TestParse_validInputs(t *testing.T) {
 			in:       "https://github.com/cli/cli/pull/1/",
 			wantHost: "github.com", wantOwner: "cli", wantRepo: "cli", wantNum: 1,
 		},
+		{
+			name:     "extra path segment is ignored",
+			in:       "https://github.com/cli/cli/pull/1/files",
+			wantHost: "github.com", wantOwner: "cli", wantRepo: "cli", wantNum: 1,
+		},
+		{
+			name:     "extra path segment with fragment is ignored",
+			in:       "https://github.com/cli/cli/pull/1/files#diff-abc",
+			wantHost: "github.com", wantOwner: "cli", wantRepo: "cli", wantNum: 1,
+		},
+		{
+			name:     "commits sub-path is ignored",
+			in:       "https://github.com/cli/cli/pull/1/commits/abc123def456",
+			wantHost: "github.com", wantOwner: "cli", wantRepo: "cli", wantNum: 1,
+		},
+		{
+			name:     "discussion fragment on files tab",
+			in:       "https://github.com/cli/cli/pull/1/files#discussion_r1234567",
+			wantHost: "github.com", wantOwner: "cli", wantRepo: "cli", wantNum: 1,
+		},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -80,7 +100,6 @@ func TestParse_invalidInputs(t *testing.T) {
 		{"zero number", "https://github.com/cli/cli/pull/0"},
 		{"negative number", "https://github.com/cli/cli/pull/-1"},
 		{"path too short", "https://github.com/cli/cli"},
-		{"path too long", "https://github.com/cli/cli/pull/1/files"},
 		{"empty owner", "https://github.com//cli/pull/1"},
 		{"empty repo", "https://github.com/cli//pull/1"},
 		{"no host", "https:///cli/cli/pull/1"},
