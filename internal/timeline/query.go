@@ -8,7 +8,7 @@ type Repo struct {
 
 // prTimelineNode is one timeline item under a PullRequest. The Typename field
 // holds the GraphQL `__typename` discriminator; the matching `... on Foo`
-// fragment is populated by shurcooL/githubv4 while the rest are zero values.
+// fragment is populated by cli/shurcooL-graphql while the rest are zero values.
 //
 
 type prTimelineNode struct {
@@ -173,7 +173,7 @@ type issueTimelineNode struct {
 	IssueCommentUnpinnedEvent issueCommentPinEventFragment `graphql:"... on IssueCommentUnpinnedEvent"`
 }
 
-// timelineQuery is the top-level query shape passed to githubv4.Client.Query.
+// timelineQuery is the top-level query shape passed to GraphQLQuerier.QueryWithContext.
 // Only one of the two `... on` branches under IssueOrPullRequest is populated
 // per response; the other stays zero-valued.
 //

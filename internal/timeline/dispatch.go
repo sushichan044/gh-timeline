@@ -973,7 +973,7 @@ func graphqlIDString(id any) string {
 	}
 }
 
-// uriString extracts the string form of a githubv4.URI, returning "" for the
+// uriString extracts the string form of a URI, returning "" for the
 // zero value (no underlying [url.URL]).
 func uriString(u URI) string {
 	if u.URL == nil {
