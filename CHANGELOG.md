@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.0](https://github.com/sushichan044/gh-timeline/compare/v1.0.1...v1.1.0) (2026-05-25)
+
+
+### Features
+
+* **githuburl:** accept URLs with extra path segments after the issue/PR number ([#12](https://github.com/sushichan044/gh-timeline/issues/12)) ([5ed51dd](https://github.com/sushichan044/gh-timeline/commit/5ed51dd26c5eea5d0daac9b22134595313284e2e))
+
 ## [1.0.1](https://github.com/sushichan044/gh-timeline/compare/v1.0.0...v1.0.1) (2026-05-24)
 
 
