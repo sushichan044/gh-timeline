@@ -1,7 +1,5 @@
 package timeline
 
-import "github.com/shurcooL/githubv4"
-
 // Repo is the minimal repo coordinate Fetch needs.
 type Repo struct {
 	Owner string
@@ -14,7 +12,7 @@ type Repo struct {
 //
 
 type prTimelineNode struct {
-	Typename githubv4.String `graphql:"__typename"`
+	Typename string `graphql:"__typename"`
 
 	// Shared with Issue timeline
 	IssueComment               issueCommentFragment               `graphql:"... on IssueComment"`
@@ -112,7 +110,7 @@ type prTimelineNode struct {
 //
 
 type issueTimelineNode struct {
-	Typename githubv4.String `graphql:"__typename"`
+	Typename string `graphql:"__typename"`
 
 	IssueComment               issueCommentFragment               `graphql:"... on IssueComment"`
 	LabeledEvent               labeledEventFragment               `graphql:"... on LabeledEvent"`
@@ -185,16 +183,16 @@ type issueTimelineNode struct {
 type timelineQuery struct {
 	Repository struct {
 		IssueOrPullRequest struct {
-			Typename    githubv4.String `graphql:"__typename"`
+			Typename    string `graphql:"__typename"`
 			PullRequest struct {
 				TimelineItems struct {
-					TotalCount githubv4.Int
+					TotalCount int32
 					Nodes      []prTimelineNode
 				} `graphql:"timelineItems(first: 100, skip: $skip)"`
 			} `graphql:"... on PullRequest"`
 			Issue struct {
 				TimelineItems struct {
-					TotalCount githubv4.Int
+					TotalCount int32
 					Nodes      []issueTimelineNode
 				} `graphql:"timelineItems(first: 100, skip: $skip)"`
 			} `graphql:"... on Issue"`

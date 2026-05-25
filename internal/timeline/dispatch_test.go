@@ -6,19 +6,17 @@ import (
 	"strings"
 	"testing"
 	"time"
-
-	"github.com/shurcooL/githubv4"
 )
 
-func dt(t time.Time) githubv4.DateTime { return githubv4.DateTime{Time: t} }
+func dt(t time.Time) DateTime { return DateTime{Time: t} }
 
-func uri(t *testing.T, raw string) githubv4.URI {
+func uri(t *testing.T, raw string) URI {
 	t.Helper()
 	u, err := url.Parse(raw)
 	if err != nil {
 		t.Fatalf("parse url %q: %v", raw, err)
 	}
-	return githubv4.URI{URL: u}
+	return URI{URL: u}
 }
 
 // TestDispatchPRNode_richSummariesPerType drives dispatchPRNode with a
@@ -57,7 +55,7 @@ func TestDispatchPRNode_richSummariesPerType(t *testing.T) {
 				n := prTimelineNode{Typename: "PullRequestReview"}
 				n.PullRequestReview.Author.Login = "bob"
 				n.PullRequestReview.SubmittedAt = dt(ts)
-				n.PullRequestReview.State = githubv4.PullRequestReviewStateApproved
+				n.PullRequestReview.State = "APPROVED"
 				n.PullRequestReview.Body = "looks good!\nmore details"
 				n.PullRequestReview.DatabaseID = int64(42)
 				return n
@@ -697,7 +695,7 @@ func TestHandleIssueComment_truncatesAndCarriesIDs(t *testing.T) {
 	f.DatabaseID = int64(99)
 	f.Author.Login = "carol"
 	f.CreatedAt = dt(time.Date(2026, 1, 1, 10, 0, 0, 0, time.UTC))
-	f.Body = githubv4.String(long)
+	f.Body = long
 	f.URL = uri(t, "https://api.github.com/repos/o/r/issues/comments/99")
 
 	e := handleIssueComment("IssueComment", f)

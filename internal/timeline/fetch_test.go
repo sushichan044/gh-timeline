@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shurcooL/githubv4"
+	graphql "github.com/cli/shurcooL-graphql"
 )
 
 // fakeQuerier serves pre-built timelineQuery pages keyed by the GraphQL
@@ -25,7 +25,7 @@ type fakeQuerier struct {
 	calls int
 }
 
-func (f *fakeQuerier) Query(_ context.Context, q any, vars map[string]any) error {
+func (f *fakeQuerier) QueryWithContext(_ context.Context, _ string, q any, vars map[string]any) error {
 	f.mu.Lock()
 	f.calls++
 	f.mu.Unlock()
@@ -33,22 +33,22 @@ func (f *fakeQuerier) Query(_ context.Context, q any, vars map[string]any) error
 	if f.queryErr != nil {
 		return f.queryErr
 	}
-	// Use t.Errorf + returned error rather than t.Fatalf: Query is invoked from
-	// errgroup goroutines for skip>0, and FailNow-class methods are only valid
-	// from the test goroutine.
+	// Use t.Errorf + returned error rather than t.Fatalf: QueryWithContext is
+	// invoked from errgroup goroutines for skip>0, and FailNow-class methods are
+	// only valid from the test goroutine.
 	dst, ok := q.(*timelineQuery)
 	if !ok {
-		f.t.Errorf("Query received %T, want *timelineQuery", q)
+		f.t.Errorf("QueryWithContext received %T, want *timelineQuery", q)
 		return fmt.Errorf("fakeQuerier: unexpected dst type %T", q)
 	}
-	skip, ok := vars["skip"].(githubv4.Int)
+	skip, ok := vars["skip"].(graphql.Int)
 	if !ok {
-		f.t.Errorf("Query missing skip variable, got %T", vars["skip"])
+		f.t.Errorf("QueryWithContext missing skip variable, got %T", vars["skip"])
 		return errors.New("fakeQuerier: missing skip variable")
 	}
 	page, ok := f.pages[int(skip)]
 	if !ok {
-		f.t.Errorf("unexpected Query for skip=%d", int(skip))
+		f.t.Errorf("unexpected QueryWithContext for skip=%d", int(skip))
 		return fmt.Errorf("fakeQuerier: no page registered for skip=%d", int(skip))
 	}
 	*dst = page
@@ -66,7 +66,7 @@ func newPRPage(t *testing.T, nodes []prTimelineNode, totalCount int) timelineQue
 	var q timelineQuery
 	q.Repository.IssueOrPullRequest.Typename = "PullRequest"
 	q.Repository.IssueOrPullRequest.PullRequest.TimelineItems.Nodes = nodes
-	q.Repository.IssueOrPullRequest.PullRequest.TimelineItems.TotalCount = githubv4.Int(int32(totalCount))
+	q.Repository.IssueOrPullRequest.PullRequest.TimelineItems.TotalCount = int32(totalCount)
 	return q
 }
 
@@ -75,7 +75,7 @@ func newIssuePage(t *testing.T, nodes []issueTimelineNode, totalCount int) timel
 	var q timelineQuery
 	q.Repository.IssueOrPullRequest.Typename = "Issue"
 	q.Repository.IssueOrPullRequest.Issue.TimelineItems.Nodes = nodes
-	q.Repository.IssueOrPullRequest.Issue.TimelineItems.TotalCount = githubv4.Int(int32(totalCount))
+	q.Repository.IssueOrPullRequest.Issue.TimelineItems.TotalCount = int32(totalCount)
 	return q
 }
 
@@ -97,7 +97,7 @@ func TestFetch_parallelizesAndSortsChronologically(t *testing.T) {
 	page1Node := prTimelineNode{Typename: "PullRequestReview"}
 	page1Node.PullRequestReview.Author.Login = "bob"
 	page1Node.PullRequestReview.SubmittedAt = dt(tsPage1)
-	page1Node.PullRequestReview.State = githubv4.PullRequestReviewStateApproved
+	page1Node.PullRequestReview.State = "APPROVED"
 
 	page2Node := prTimelineNode{Typename: "MergedEvent"}
 	page2Node.MergedEvent.Actor.Login = "carol"
@@ -338,17 +338,17 @@ type erroringPagedQuerier struct {
 	err   error
 }
 
-func (f *erroringPagedQuerier) Query(_ context.Context, q any, vars map[string]any) error {
-	// Same goroutine-safety reason as fakeQuerier.Query — see comment there.
-	skip, ok := vars["skip"].(githubv4.Int)
+func (f *erroringPagedQuerier) QueryWithContext(_ context.Context, _ string, q any, vars map[string]any) error {
+	// Same goroutine-safety reason as fakeQuerier.QueryWithContext — see comment there.
+	skip, ok := vars["skip"].(graphql.Int)
 	if !ok {
-		f.t.Errorf("Query missing skip variable, got %T", vars["skip"])
+		f.t.Errorf("QueryWithContext missing skip variable, got %T", vars["skip"])
 		return errors.New("erroringPagedQuerier: missing skip variable")
 	}
 	if int(skip) == 0 {
 		dst, dstOK := q.(*timelineQuery)
 		if !dstOK {
-			f.t.Errorf("Query received %T, want *timelineQuery", q)
+			f.t.Errorf("QueryWithContext received %T, want *timelineQuery", q)
 			return fmt.Errorf("erroringPagedQuerier: unexpected dst type %T", q)
 		}
 		*dst = f.first

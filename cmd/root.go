@@ -10,12 +10,10 @@ import (
 	"io/fs"
 	"strconv"
 
-	"github.com/cli/go-gh/v2/pkg/auth"
+	"github.com/cli/go-gh/v2/pkg/api"
 	"github.com/cli/go-gh/v2/pkg/repository"
 	"github.com/jehiah/agentdetection"
-	"github.com/shurcooL/githubv4"
 	"github.com/spf13/pflag"
-	"golang.org/x/oauth2"
 
 	"github.com/sushichan044/gh-timeline/internal/githuburl"
 	"github.com/sushichan044/gh-timeline/internal/timeline"
@@ -75,23 +73,12 @@ func defaultDeps(skillFS fs.FS, agentHelp string) Deps {
 	}
 }
 
-// newGraphQLClient resolves the gh auth token for the active host and wraps
-// it in an oauth2-backed HTTP client that *githubv4.Client wants. The host
-// comes from gh's auth resolution, mirroring how go-gh's REST client picks up
-// GHE configuration.
-func newGraphQLClient(ctx context.Context) (timeline.GraphQLQuerier, error) {
-	host, _ := auth.DefaultHost()
-	token, _ := auth.TokenForHost(host)
-	if token == "" {
-		return nil, fmt.Errorf("not authenticated for host %q — run `gh auth login`", host)
+func newGraphQLClient(_ context.Context) (timeline.GraphQLQuerier, error) {
+	client, err := api.DefaultGraphQLClient()
+	if err != nil {
+		return nil, fmt.Errorf("not authenticated — run `gh auth login`: %w", err)
 	}
-	src := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: token})
-	httpClient := oauth2.NewClient(ctx, src)
-	if host == "" || host == "github.com" {
-		return githubv4.NewClient(httpClient), nil
-	}
-	endpoint := fmt.Sprintf("https://%s/api/graphql", host)
-	return githubv4.NewEnterpriseClient(endpoint, httpClient), nil
+	return client, nil
 }
 
 // RunWithDeps is the test-friendly entry point — production code uses [Run]

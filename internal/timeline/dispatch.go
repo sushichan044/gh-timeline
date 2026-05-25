@@ -1,10 +1,6 @@
 package timeline
 
-import (
-	"fmt"
-
-	"github.com/shurcooL/githubv4"
-)
+import "fmt"
 
 // dispatchPRNode converts one prTimelineNode into the normalized Event. Falls
 // back to a type-only Event when the GraphQL __typename is not one our table
@@ -13,7 +9,7 @@ import (
 //
 //nolint:cyclop,funlen,gocyclo,goconst // GraphQL union dispatcher — complexity and string repetition mirror the schema's union surface.
 func dispatchPRNode(n prTimelineNode) Event {
-	t := string(n.Typename)
+	t := n.Typename
 	switch t {
 	// Shared with Issue
 	case "IssueComment":
@@ -117,14 +113,14 @@ func dispatchPRNode(n prTimelineNode) Event {
 		return Event{
 			Type:      t,
 			Timestamp: n.PullRequestRevisionMarker.CreatedAt.Time,
-			Ref:       Ref{SHA: string(n.PullRequestRevisionMarker.LastSeenCommit.OID)},
+			Ref:       Ref{SHA: n.PullRequestRevisionMarker.LastSeenCommit.OID},
 		}
 	case "PullRequestCommitCommentThread":
 		return Event{
 			Type: t,
 			Ref: Ref{
 				NodeID: graphqlIDString(n.PullRequestCommitCommentThread.ID),
-				SHA:    string(n.PullRequestCommitCommentThread.Commit.OID),
+				SHA:    n.PullRequestCommitCommentThread.Commit.OID,
 			},
 		}
 	case "MergedEvent":
@@ -177,7 +173,7 @@ func dispatchPRNode(n prTimelineNode) Event {
 //
 //nolint:cyclop,funlen,gocyclo // GraphQL union dispatcher — see dispatchPRNode.
 func dispatchIssueNode(n issueTimelineNode) Event {
-	t := string(n.Typename)
+	t := n.Typename
 	switch t {
 	case "IssueComment":
 		return handleIssueComment(t, n.IssueComment)
@@ -338,9 +334,9 @@ func pickCommon(t string, n prTimelineNode) commonEvent {
 func handleIssueComment(typename string, f issueCommentFragment) Event {
 	return Event{
 		Type:      typename,
-		Actor:     string(f.Author.Login),
+		Actor:     f.Author.Login,
 		Timestamp: f.CreatedAt.Time,
-		Summary:   truncate(firstLine(string(f.Body))),
+		Summary:   truncate(firstLine(f.Body)),
 		Ref: Ref{
 			NodeID:    graphqlIDString(f.ID),
 			CommentID: f.DatabaseID,
@@ -355,12 +351,12 @@ func handleLabeled(typename string, f labeledEventFragment) Event {
 		verb = "removed label"
 	}
 	summary := verb
-	if name := string(f.Label.Name); name != "" {
+	if name := f.Label.Name; name != "" {
 		summary = fmt.Sprintf("%s %s", verb, name)
 	}
 	return Event{
 		Type:      typename,
-		Actor:     string(f.Actor.Login),
+		Actor:     f.Actor.Login,
 		Timestamp: f.CreatedAt.Time,
 		Summary:   summary,
 		Ref:       Ref{NodeID: graphqlIDString(f.ID)},
@@ -378,7 +374,7 @@ func handleAssigned(typename string, f assignedEventFragment) Event {
 	}
 	return Event{
 		Type:      typename,
-		Actor:     string(f.Actor.Login),
+		Actor:     f.Actor.Login,
 		Timestamp: f.CreatedAt.Time,
 		Summary:   summary,
 		Ref:       Ref{NodeID: graphqlIDString(f.ID)},
@@ -391,12 +387,12 @@ func handleMilestoned(typename string, f milestonedEventFragment) Event {
 		verb = "removed from milestone"
 	}
 	summary := verb
-	if title := string(f.MilestoneTitle); title != "" {
+	if title := f.MilestoneTitle; title != "" {
 		summary = fmt.Sprintf("%s %q", verb, title)
 	}
 	return Event{
 		Type:      typename,
-		Actor:     string(f.Actor.Login),
+		Actor:     f.Actor.Login,
 		Timestamp: f.CreatedAt.Time,
 		Summary:   summary,
 		Ref:       Ref{NodeID: graphqlIDString(f.ID)},
@@ -404,11 +400,11 @@ func handleMilestoned(typename string, f milestonedEventFragment) Event {
 }
 
 func handleRenamedTitle(typename string, f renamedTitleEventFragment) Event {
-	prev := truncate(string(f.PreviousTitle))
-	curr := truncate(string(f.CurrentTitle))
+	prev := truncate(f.PreviousTitle)
+	curr := truncate(f.CurrentTitle)
 	return Event{
 		Type:      typename,
-		Actor:     string(f.Actor.Login),
+		Actor:     f.Actor.Login,
 		Timestamp: f.CreatedAt.Time,
 		Summary:   fmt.Sprintf("renamed: %q → %q", prev, curr),
 		Ref:       Ref{NodeID: graphqlIDString(f.ID)},
@@ -417,12 +413,12 @@ func handleRenamedTitle(typename string, f renamedTitleEventFragment) Event {
 
 func handleClosed(typename string, f closedEventFragment) Event {
 	summary := "closed"
-	if reason := string(f.StateReason); reason != "" {
+	if reason := f.StateReason; reason != "" {
 		summary = fmt.Sprintf("closed: %s", reason)
 	}
 	return Event{
 		Type:      typename,
-		Actor:     string(f.Actor.Login),
+		Actor:     f.Actor.Login,
 		Timestamp: f.CreatedAt.Time,
 		Summary:   summary,
 		Ref:       Ref{NodeID: graphqlIDString(f.ID)},
@@ -431,12 +427,12 @@ func handleClosed(typename string, f closedEventFragment) Event {
 
 func handleLocked(typename string, f lockedEventFragment) Event {
 	summary := "locked"
-	if reason := string(f.LockReason); reason != "" {
+	if reason := f.LockReason; reason != "" {
 		summary = fmt.Sprintf("locked: %s", reason)
 	}
 	return Event{
 		Type:      typename,
-		Actor:     string(f.Actor.Login),
+		Actor:     f.Actor.Login,
 		Timestamp: f.CreatedAt.Time,
 		Summary:   summary,
 		Ref:       Ref{NodeID: graphqlIDString(f.ID)},
@@ -446,7 +442,7 @@ func handleLocked(typename string, f lockedEventFragment) Event {
 func handleSimpleWord(typename, word string, f commonEvent) Event {
 	return Event{
 		Type:      typename,
-		Actor:     string(f.Actor.Login),
+		Actor:     f.Actor.Login,
 		Timestamp: f.CreatedAt.Time,
 		Summary:   word,
 		Ref:       Ref{NodeID: graphqlIDString(f.ID)},
@@ -458,7 +454,7 @@ func handleCrossReferenced(typename string, f crossReferencedEventFragment) Even
 	summary := fmt.Sprintf("referenced from %s#%d", repo, num)
 	return Event{
 		Type:      typename,
-		Actor:     string(f.Actor.Login),
+		Actor:     f.Actor.Login,
 		Timestamp: f.CreatedAt.Time,
 		Summary:   summary,
 		Ref:       Ref{NodeID: graphqlIDString(f.ID)},
@@ -467,15 +463,15 @@ func handleCrossReferenced(typename string, f crossReferencedEventFragment) Even
 
 func handleReferenced(typename string, f referencedEventFragment) Event {
 	summary := "referenced"
-	if sha := string(f.Commit.OID); sha != "" {
+	if sha := f.Commit.OID; sha != "" {
 		summary = fmt.Sprintf("referenced from commit %s", shortSHA(sha))
 	}
 	return Event{
 		Type:      typename,
-		Actor:     string(f.Actor.Login),
+		Actor:     f.Actor.Login,
 		Timestamp: f.CreatedAt.Time,
 		Summary:   summary,
-		Ref:       Ref{NodeID: graphqlIDString(f.ID), SHA: string(f.Commit.OID)},
+		Ref:       Ref{NodeID: graphqlIDString(f.ID), SHA: f.Commit.OID},
 	}
 }
 
@@ -487,7 +483,7 @@ func handleMarkedAsDuplicate(typename string, f markedAsDuplicateEventFragment) 
 	}
 	return Event{
 		Type:      typename,
-		Actor:     string(f.Actor.Login),
+		Actor:     f.Actor.Login,
 		Timestamp: f.CreatedAt.Time,
 		Summary:   summary,
 		Ref:       Ref{NodeID: graphqlIDString(f.ID)},
@@ -497,7 +493,7 @@ func handleMarkedAsDuplicate(typename string, f markedAsDuplicateEventFragment) 
 func handleConvertedToDiscussion(typename string, f convertedToDiscussionEventFragment) Event {
 	return Event{
 		Type:      typename,
-		Actor:     string(f.Actor.Login),
+		Actor:     f.Actor.Login,
 		Timestamp: f.CreatedAt.Time,
 		Summary:   fmt.Sprintf("converted to discussion #%d", int(f.Discussion.Number)),
 		Ref:       Ref{NodeID: graphqlIDString(f.ID)},
@@ -506,12 +502,12 @@ func handleConvertedToDiscussion(typename string, f convertedToDiscussionEventFr
 
 func handleTransferred(typename string, f transferredEventFragment) Event {
 	summary := "transferred"
-	if from := string(f.FromRepository.NameWithOwner); from != "" {
+	if from := f.FromRepository.NameWithOwner; from != "" {
 		summary = fmt.Sprintf("transferred from %s", from)
 	}
 	return Event{
 		Type:      typename,
-		Actor:     string(f.Actor.Login),
+		Actor:     f.Actor.Login,
 		Timestamp: f.CreatedAt.Time,
 		Summary:   summary,
 		Ref:       Ref{NodeID: graphqlIDString(f.ID)},
@@ -526,7 +522,7 @@ func handleConnected(typename, verb string, f connectedEventFragment) Event {
 	}
 	return Event{
 		Type:      typename,
-		Actor:     string(f.Actor.Login),
+		Actor:     f.Actor.Login,
 		Timestamp: f.CreatedAt.Time,
 		Summary:   summary,
 		Ref:       Ref{NodeID: graphqlIDString(f.ID)},
@@ -535,15 +531,15 @@ func handleConnected(typename, verb string, f connectedEventFragment) Event {
 
 func handleProjectChange(typename, verb string, f projectChangeEventFragment) Event {
 	summary := verb
-	if name := string(f.Project.Name); name != "" {
+	if name := f.Project.Name; name != "" {
 		summary = fmt.Sprintf("%s %q", verb, name)
 	}
-	if col := string(f.ProjectColumnName); col != "" {
+	if col := f.ProjectColumnName; col != "" {
 		summary = fmt.Sprintf("%s (column %q)", summary, col)
 	}
 	return Event{
 		Type:      typename,
-		Actor:     string(f.Actor.Login),
+		Actor:     f.Actor.Login,
 		Timestamp: f.CreatedAt.Time,
 		Summary:   summary,
 		Ref:       Ref{NodeID: graphqlIDString(f.ID)},
@@ -551,11 +547,11 @@ func handleProjectChange(typename, verb string, f projectChangeEventFragment) Ev
 }
 
 func handleMovedColumns(typename string, f movedColumnsInProjectEventFragment) Event {
-	prev := string(f.PreviousProjectColumnName)
-	curr := string(f.ProjectColumnName)
+	prev := f.PreviousProjectColumnName
+	curr := f.ProjectColumnName
 	return Event{
 		Type:      typename,
-		Actor:     string(f.Actor.Login),
+		Actor:     f.Actor.Login,
 		Timestamp: f.CreatedAt.Time,
 		Summary:   fmt.Sprintf("moved %q → %q", prev, curr),
 		Ref:       Ref{NodeID: graphqlIDString(f.ID)},
@@ -563,17 +559,17 @@ func handleMovedColumns(typename string, f movedColumnsInProjectEventFragment) E
 }
 
 func handleUserBlocked(typename string, f userBlockedEventFragment) Event {
-	target := string(f.Subject.Login)
+	target := f.Subject.Login
 	summary := "blocked user"
 	if target != "" {
 		summary = fmt.Sprintf("blocked %s", target)
 	}
-	if dur := string(f.BlockDuration); dur != "" {
+	if dur := f.BlockDuration; dur != "" {
 		summary = fmt.Sprintf("%s (%s)", summary, dur)
 	}
 	return Event{
 		Type:      typename,
-		Actor:     string(f.Actor.Login),
+		Actor:     f.Actor.Login,
 		Timestamp: f.CreatedAt.Time,
 		Summary:   summary,
 		Ref:       Ref{NodeID: graphqlIDString(f.ID)},
@@ -581,18 +577,18 @@ func handleUserBlocked(typename string, f userBlockedEventFragment) Event {
 }
 
 func handlePullRequestCommit(typename string, f pullRequestCommitFragment) Event {
-	actor := string(f.Commit.Author.User.Login)
+	actor := f.Commit.Author.User.Login
 	if actor == "" {
-		actor = string(f.Commit.Author.Name)
+		actor = f.Commit.Author.Name
 	}
 	return Event{
 		Type:      typename,
 		Actor:     actor,
 		Timestamp: f.Commit.CommittedDate.Time,
-		Summary:   truncate(firstLine(string(f.Commit.MessageHeadline))),
+		Summary:   truncate(firstLine(f.Commit.MessageHeadline)),
 		Ref: Ref{
 			NodeID: graphqlIDString(f.ID),
-			SHA:    string(f.Commit.OID),
+			SHA:    f.Commit.OID,
 			URL:    uriString(f.URL),
 		},
 	}
@@ -603,13 +599,13 @@ func handlePullRequestReview(typename string, f pullRequestReviewFragment) Event
 	if ts.IsZero() {
 		ts = f.CreatedAt.Time
 	}
-	summary := string(f.State)
-	if body := firstLine(string(f.Body)); body != "" {
+	summary := f.State
+	if body := firstLine(f.Body); body != "" {
 		summary = fmt.Sprintf("%s: %s", summary, truncate(body))
 	}
 	return Event{
 		Type:      typename,
-		Actor:     string(f.Author.Login),
+		Actor:     f.Author.Login,
 		Timestamp: ts,
 		Summary:   summary,
 		Ref: Ref{
@@ -621,8 +617,8 @@ func handlePullRequestReview(typename string, f pullRequestReviewFragment) Event
 }
 
 func handleMerged(typename string, f mergedEventFragment) Event {
-	sha := string(f.Commit.OID)
-	mergeRef := string(f.MergeRefName)
+	sha := f.Commit.OID
+	mergeRef := f.MergeRefName
 	summary := "merged"
 	switch {
 	case sha != "" && mergeRef != "":
@@ -634,7 +630,7 @@ func handleMerged(typename string, f mergedEventFragment) Event {
 	}
 	return Event{
 		Type:      typename,
-		Actor:     string(f.Actor.Login),
+		Actor:     f.Actor.Login,
 		Timestamp: f.CreatedAt.Time,
 		Summary:   summary,
 		Ref: Ref{
@@ -656,7 +652,7 @@ func handleReviewRequested(typename string, f reviewRequestedEventFragment) Even
 	}
 	return Event{
 		Type:      typename,
-		Actor:     string(f.Actor.Login),
+		Actor:     f.Actor.Login,
 		Timestamp: f.CreatedAt.Time,
 		Summary:   summary,
 		Ref:       Ref{NodeID: graphqlIDString(f.ID)},
@@ -664,17 +660,17 @@ func handleReviewRequested(typename string, f reviewRequestedEventFragment) Even
 }
 
 func handleReviewDismissed(typename string, f reviewDismissedEventFragment) Event {
-	author := string(f.Review.Author.Login)
+	author := f.Review.Author.Login
 	summary := "dismissed review"
 	if author != "" {
 		summary = fmt.Sprintf("dismissed review by %s", author)
 	}
-	if msg := firstLine(string(f.DismissalMessage)); msg != "" {
+	if msg := firstLine(f.DismissalMessage); msg != "" {
 		summary = fmt.Sprintf("%s: %s", summary, truncate(msg))
 	}
 	return Event{
 		Type:      typename,
-		Actor:     string(f.Actor.Login),
+		Actor:     f.Actor.Login,
 		Timestamp: f.CreatedAt.Time,
 		Summary:   summary,
 		Ref:       Ref{NodeID: graphqlIDString(f.ID)},
@@ -682,8 +678,8 @@ func handleReviewDismissed(typename string, f reviewDismissedEventFragment) Even
 }
 
 func handleForcePushed(typename, verb string, f forcePushedEventFragment) Event {
-	before := string(f.BeforeCommit.OID)
-	after := string(f.AfterCommit.OID)
+	before := f.BeforeCommit.OID
+	after := f.AfterCommit.OID
 	summary := verb
 	switch {
 	case before != "" && after != "":
@@ -695,7 +691,7 @@ func handleForcePushed(typename, verb string, f forcePushedEventFragment) Event 
 	}
 	return Event{
 		Type:      typename,
-		Actor:     string(f.Actor.Login),
+		Actor:     f.Actor.Login,
 		Timestamp: f.CreatedAt.Time,
 		Summary:   summary,
 		Ref:       Ref{NodeID: graphqlIDString(f.ID), SHA: after},
@@ -705,21 +701,21 @@ func handleForcePushed(typename, verb string, f forcePushedEventFragment) Event 
 func handleBaseRefChanged(typename string, f baseRefChangedEventFragment) Event {
 	return Event{
 		Type:      typename,
-		Actor:     string(f.Actor.Login),
+		Actor:     f.Actor.Login,
 		Timestamp: f.CreatedAt.Time,
-		Summary:   fmt.Sprintf("base ref changed: %s → %s", string(f.PreviousRefName), string(f.CurrentRefName)),
+		Summary:   fmt.Sprintf("base ref changed: %s → %s", f.PreviousRefName, f.CurrentRefName),
 		Ref:       Ref{NodeID: graphqlIDString(f.ID)},
 	}
 }
 
 func handleBaseRefDeleted(typename string, f baseRefDeletedEventFragment) Event {
 	summary := "base ref deleted"
-	if name := string(f.BaseRefName); name != "" {
+	if name := f.BaseRefName; name != "" {
 		summary = fmt.Sprintf("base ref deleted: %s", name)
 	}
 	return Event{
 		Type:      typename,
-		Actor:     string(f.Actor.Login),
+		Actor:     f.Actor.Login,
 		Timestamp: f.CreatedAt.Time,
 		Summary:   summary,
 		Ref:       Ref{NodeID: graphqlIDString(f.ID)},
@@ -728,12 +724,12 @@ func handleBaseRefDeleted(typename string, f baseRefDeletedEventFragment) Event 
 
 func handleHeadRefDeleted(typename string, f headRefDeletedEventFragment) Event {
 	summary := "head ref deleted"
-	if name := string(f.HeadRefName); name != "" {
+	if name := f.HeadRefName; name != "" {
 		summary = fmt.Sprintf("deleted branch %s", name)
 	}
 	return Event{
 		Type:      typename,
-		Actor:     string(f.Actor.Login),
+		Actor:     f.Actor.Login,
 		Timestamp: f.CreatedAt.Time,
 		Summary:   summary,
 		Ref:       Ref{NodeID: graphqlIDString(f.ID)},
@@ -741,14 +737,14 @@ func handleHeadRefDeleted(typename string, f headRefDeletedEventFragment) Event 
 }
 
 func handleDeployed(typename string, f deployedEventFragment) Event {
-	env := string(f.Deployment.Environment)
+	env := f.Deployment.Environment
 	summary := "deployed"
 	if env != "" {
 		summary = fmt.Sprintf("deployed to %s", env)
 	}
 	return Event{
 		Type:      typename,
-		Actor:     string(f.Actor.Login),
+		Actor:     f.Actor.Login,
 		Timestamp: f.CreatedAt.Time,
 		Summary:   summary,
 		Ref:       Ref{NodeID: graphqlIDString(f.ID)},
@@ -756,14 +752,14 @@ func handleDeployed(typename string, f deployedEventFragment) Event {
 }
 
 func handleDeploymentEnvChanged(typename string, f deploymentEnvironmentChangedEventFragment) Event {
-	env := string(f.DeploymentStatus.Deployment.Environment)
+	env := f.DeploymentStatus.Deployment.Environment
 	summary := "deployment environment changed"
 	if env != "" {
 		summary = fmt.Sprintf("deployment environment changed to %s", env)
 	}
 	return Event{
 		Type:      typename,
-		Actor:     string(f.Actor.Login),
+		Actor:     f.Actor.Login,
 		Timestamp: f.CreatedAt.Time,
 		Summary:   summary,
 		Ref:       Ref{NodeID: graphqlIDString(f.ID)},
@@ -778,13 +774,13 @@ func issueRefSummary(verb string, ref issueRefFragment) string {
 	if num == 0 {
 		return verb
 	}
-	return fmt.Sprintf("%s %s#%d", verb, string(ref.Repository.NameWithOwner), num)
+	return fmt.Sprintf("%s %s#%d", verb, ref.Repository.NameWithOwner, num)
 }
 
 func handleSubIssue(typename, verb string, f subIssueEventFragment) Event {
 	return Event{
 		Type:      typename,
-		Actor:     string(f.Actor.Login),
+		Actor:     f.Actor.Login,
 		Timestamp: f.CreatedAt.Time,
 		Summary:   issueRefSummary(verb, f.SubIssue),
 		Ref:       Ref{NodeID: graphqlIDString(f.ID)},
@@ -794,7 +790,7 @@ func handleSubIssue(typename, verb string, f subIssueEventFragment) Event {
 func handleParentIssue(typename, verb string, f parentIssueEventFragment) Event {
 	return Event{
 		Type:      typename,
-		Actor:     string(f.Actor.Login),
+		Actor:     f.Actor.Login,
 		Timestamp: f.CreatedAt.Time,
 		Summary:   issueRefSummary(verb, f.Parent),
 		Ref:       Ref{NodeID: graphqlIDString(f.ID)},
@@ -804,7 +800,7 @@ func handleParentIssue(typename, verb string, f parentIssueEventFragment) Event 
 func handleBlockedBy(typename, verb string, f blockedByEventFragment) Event {
 	return Event{
 		Type:      typename,
-		Actor:     string(f.Actor.Login),
+		Actor:     f.Actor.Login,
 		Timestamp: f.CreatedAt.Time,
 		Summary:   issueRefSummary(verb, f.BlockingIssue),
 		Ref:       Ref{NodeID: graphqlIDString(f.ID)},
@@ -814,7 +810,7 @@ func handleBlockedBy(typename, verb string, f blockedByEventFragment) Event {
 func handleBlocking(typename, verb string, f blockingEventFragment) Event {
 	return Event{
 		Type:      typename,
-		Actor:     string(f.Actor.Login),
+		Actor:     f.Actor.Login,
 		Timestamp: f.CreatedAt.Time,
 		Summary:   issueRefSummary(verb, f.BlockedIssue),
 		Ref:       Ref{NodeID: graphqlIDString(f.ID)},
@@ -823,12 +819,12 @@ func handleBlocking(typename, verb string, f blockingEventFragment) Event {
 
 func handleProjectV2Change(typename, verb string, f projectV2ChangeEventFragment) Event {
 	summary := verb
-	if title := string(f.Project.Title); title != "" {
+	if title := f.Project.Title; title != "" {
 		summary = fmt.Sprintf("%s %q", verb, title)
 	}
 	return Event{
 		Type:      typename,
-		Actor:     string(f.Actor.Login),
+		Actor:     f.Actor.Login,
 		Timestamp: f.CreatedAt.Time,
 		Summary:   summary,
 		Ref:       Ref{NodeID: graphqlIDString(f.ID)},
@@ -836,15 +832,15 @@ func handleProjectV2Change(typename, verb string, f projectV2ChangeEventFragment
 }
 
 func handleProjectV2StatusChanged(typename string, f projectV2StatusChangedEventFragment) Event {
-	prev := string(f.PreviousStatus)
-	curr := string(f.Status)
+	prev := f.PreviousStatus
+	curr := f.Status
 	summary := fmt.Sprintf("status changed: %q → %q", prev, curr)
-	if title := string(f.Project.Title); title != "" {
+	if title := f.Project.Title; title != "" {
 		summary = fmt.Sprintf("status changed in project %q: %q → %q", title, prev, curr)
 	}
 	return Event{
 		Type:      typename,
-		Actor:     string(f.Actor.Login),
+		Actor:     f.Actor.Login,
 		Timestamp: f.CreatedAt.Time,
 		Summary:   summary,
 		Ref:       Ref{NodeID: graphqlIDString(f.ID)},
@@ -852,17 +848,17 @@ func handleProjectV2StatusChanged(typename string, f projectV2StatusChangedEvent
 }
 
 func handleIssueFieldAdded(typename string, f issueFieldAddedEventFragment) Event {
-	name := string(f.IssueField.IssueFieldCommon.Name)
+	name := f.IssueField.IssueFieldCommon.Name
 	summary := "added field"
 	if name != "" {
 		summary = fmt.Sprintf("added field %q", name)
 	}
-	if val := string(f.Value); val != "" {
+	if val := f.Value; val != "" {
 		summary = fmt.Sprintf("%s: %s", summary, truncate(val))
 	}
 	return Event{
 		Type:      typename,
-		Actor:     string(f.Actor.Login),
+		Actor:     f.Actor.Login,
 		Timestamp: f.CreatedAt.Time,
 		Summary:   summary,
 		Ref:       Ref{NodeID: graphqlIDString(f.ID)},
@@ -870,9 +866,9 @@ func handleIssueFieldAdded(typename string, f issueFieldAddedEventFragment) Even
 }
 
 func handleIssueFieldChanged(typename string, f issueFieldChangedEventFragment) Event {
-	name := string(f.IssueField.IssueFieldCommon.Name)
-	prev := string(f.PreviousValue)
-	curr := string(f.NewValue)
+	name := f.IssueField.IssueFieldCommon.Name
+	prev := f.PreviousValue
+	curr := f.NewValue
 	summary := "changed field"
 	if name != "" {
 		summary = fmt.Sprintf("changed field %q", name)
@@ -882,7 +878,7 @@ func handleIssueFieldChanged(typename string, f issueFieldChangedEventFragment) 
 	}
 	return Event{
 		Type:      typename,
-		Actor:     string(f.Actor.Login),
+		Actor:     f.Actor.Login,
 		Timestamp: f.CreatedAt.Time,
 		Summary:   summary,
 		Ref:       Ref{NodeID: graphqlIDString(f.ID)},
@@ -891,12 +887,12 @@ func handleIssueFieldChanged(typename string, f issueFieldChangedEventFragment) 
 
 func handleIssueFieldRemoved(typename string, f issueFieldRemovedEventFragment) Event {
 	summary := "removed field"
-	if name := string(f.IssueField.IssueFieldCommon.Name); name != "" {
+	if name := f.IssueField.IssueFieldCommon.Name; name != "" {
 		summary = fmt.Sprintf("removed field %q", name)
 	}
 	return Event{
 		Type:      typename,
-		Actor:     string(f.Actor.Login),
+		Actor:     f.Actor.Login,
 		Timestamp: f.CreatedAt.Time,
 		Summary:   summary,
 		Ref:       Ref{NodeID: graphqlIDString(f.ID)},
@@ -905,12 +901,12 @@ func handleIssueFieldRemoved(typename string, f issueFieldRemovedEventFragment) 
 
 func handleIssueType(typename, verb string, f issueTypeEventFragment) Event {
 	summary := verb
-	if name := string(f.IssueType.Name); name != "" {
+	if name := f.IssueType.Name; name != "" {
 		summary = fmt.Sprintf("%s %q", verb, name)
 	}
 	return Event{
 		Type:      typename,
-		Actor:     string(f.Actor.Login),
+		Actor:     f.Actor.Login,
 		Timestamp: f.CreatedAt.Time,
 		Summary:   summary,
 		Ref:       Ref{NodeID: graphqlIDString(f.ID)},
@@ -918,15 +914,15 @@ func handleIssueType(typename, verb string, f issueTypeEventFragment) Event {
 }
 
 func handleIssueTypeChanged(typename string, f issueTypeChangedEventFragment) Event {
-	prev := string(f.PrevIssueType.Name)
-	curr := string(f.IssueType.Name)
+	prev := f.PrevIssueType.Name
+	curr := f.IssueType.Name
 	summary := "changed issue type"
 	if prev != "" || curr != "" {
 		summary = fmt.Sprintf("changed issue type: %q → %q", prev, curr)
 	}
 	return Event{
 		Type:      typename,
-		Actor:     string(f.Actor.Login),
+		Actor:     f.Actor.Login,
 		Timestamp: f.CreatedAt.Time,
 		Summary:   summary,
 		Ref:       Ref{NodeID: graphqlIDString(f.ID)},
@@ -936,7 +932,7 @@ func handleIssueTypeChanged(typename string, f issueTypeChangedEventFragment) Ev
 func handleIssueCommentPin(typename, verb string, f issueCommentPinEventFragment) Event {
 	return Event{
 		Type:      typename,
-		Actor:     string(f.Actor.Login),
+		Actor:     f.Actor.Login,
 		Timestamp: f.CreatedAt.Time,
 		Summary:   verb,
 		Ref: Ref{
@@ -949,12 +945,12 @@ func handleIssueCommentPin(typename, verb string, f issueCommentPinEventFragment
 
 func handleAutomaticBaseChange(typename, verb string, f automaticBaseChangeEventFragment) Event {
 	summary := verb
-	if oldBase, newBase := string(f.OldBase), string(f.NewBase); oldBase != "" && newBase != "" {
+	if oldBase, newBase := f.OldBase, f.NewBase; oldBase != "" && newBase != "" {
 		summary = fmt.Sprintf("%s: %s → %s", verb, oldBase, newBase)
 	}
 	return Event{
 		Type:      typename,
-		Actor:     string(f.Actor.Login),
+		Actor:     f.Actor.Login,
 		Timestamp: f.CreatedAt.Time,
 		Summary:   summary,
 		Ref:       Ref{NodeID: graphqlIDString(f.ID)},
@@ -966,7 +962,7 @@ func handleAutomaticBaseChange(typename, verb string, f automaticBaseChangeEvent
 // graphqlIDString defensively turns a GraphQL ID into a string. The library
 // types ID as `interface{}` because IDs are opaque scalars, but in practice
 // GitHub always sends them as JSON strings.
-func graphqlIDString(id githubv4.ID) string {
+func graphqlIDString(id any) string {
 	switch v := id.(type) {
 	case string:
 		return v
@@ -979,7 +975,7 @@ func graphqlIDString(id githubv4.ID) string {
 
 // uriString extracts the string form of a githubv4.URI, returning "" for the
 // zero value (no underlying [url.URL]).
-func uriString(u githubv4.URI) string {
+func uriString(u URI) string {
 	if u.URL == nil {
 		return ""
 	}
@@ -1000,10 +996,10 @@ func shortSHA(sha string) string {
 // number, title); a zero number means neither side was populated.
 func subjectInfo(s subjectFragment) (string, int) {
 	if n := int(s.PullRequest.Number); n != 0 {
-		return string(s.PullRequest.Repository.NameWithOwner), n
+		return s.PullRequest.Repository.NameWithOwner, n
 	}
 	if n := int(s.Issue.Number); n != 0 {
-		return string(s.Issue.Repository.NameWithOwner), n
+		return s.Issue.Repository.NameWithOwner, n
 	}
 	return "", 0
 }
@@ -1011,16 +1007,16 @@ func subjectInfo(s subjectFragment) (string, int) {
 // pickReviewerLabel produces a short label for whichever member of the
 // RequestedReviewer union is populated.
 func pickReviewerLabel(r userOrTeamFragment) string {
-	if login := string(r.User.Login); login != "" {
+	if login := r.User.Login; login != "" {
 		return login
 	}
-	if login := string(r.Bot.Login); login != "" {
+	if login := r.Bot.Login; login != "" {
 		return login
 	}
-	if login := string(r.Mannequin.Login); login != "" {
+	if login := r.Mannequin.Login; login != "" {
 		return login
 	}
-	if slug := string(r.Team.Slug); slug != "" {
+	if slug := r.Team.Slug; slug != "" {
 		return "team:" + slug
 	}
 	return ""
